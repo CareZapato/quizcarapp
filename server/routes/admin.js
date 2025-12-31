@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs/promises';
 import { dbAll, dbGet, dbRun } from '../config/database.js';
 import { authMiddleware } from '../middleware/auth.js';
 
@@ -210,7 +211,6 @@ router.post('/upload-image', authMiddleware, adminMiddleware, upload.single('ima
       return res.status(400).json({ error: 'No se proporcionó ninguna imagen' });
     }
 
-    const fs = require('fs').promises;
     const questionId = req.body.questionId;
     const timestamp = Date.now();
     const ext = path.extname(req.file.filename);

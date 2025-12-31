@@ -22,6 +22,9 @@ const Admin = () => {
   const [showBackupSection, setShowBackupSection] = useState(false);
   const [backupJsonInput, setBackupJsonInput] = useState('');
   const [confirmationText, setConfirmationText] = useState('');
+  const [quickUploadModal, setQuickUploadModal] = useState({ show: false, questionId: null, questionNumber: null });
+  const [quickUploadingImage, setQuickUploadingImage] = useState(false);
+  const [previewModal, setPreviewModal] = useState({ show: false, question: null });
 
   const [formData, setFormData] = useState({
     question_number: '',
@@ -30,6 +33,7 @@ const Admin = () => {
     option_a: '',
     option_b: '',
     option_c: '',
+    option_d: '',
     correct_answer: ['A'], // Array para múltiples respuestas
     explanation: '',
     image_url: '',
@@ -179,6 +183,51 @@ const Admin = () => {
     }
   };
 
+  const handleQuickPaste = async (e, questionId) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        e.preventDefault();
+        const blob = items[i].getAsFile();
+        if (blob) {
+          await handleQuickImageUpload(blob, questionId);
+        }
+        break;
+      }
+    }
+  };
+
+  const handleQuickImageUpload = async (file, questionId) => {
+    setQuickUploadingImage(true);
+    try {
+      const formDataImage = new FormData();
+      formDataImage.append('image', file);
+      formDataImage.append('questionId', questionId);
+      
+      const uploadRes = await axios.post('/admin/upload-image', formDataImage, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      const fullQuestion = questions.find(fq => fq.id === questionId);
+      await axios.put(`/admin/questions/${questionId}`, {
+        ...fullQuestion,
+        image_url: uploadRes.data.imageUrl
+      });
+      
+      alert('✅ Imagen agregada exitosamente');
+      setQuickUploadModal({ show: false, questionId: null, questionNumber: null });
+      loadQuestionsMap();
+      loadData();
+    } catch (error) {
+      console.error('Error al subir imagen:', error);
+      alert('❌ Error al subir imagen');
+    } finally {
+      setQuickUploadingImage(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -224,6 +273,7 @@ const Admin = () => {
       option_a: question.option_a,
       option_b: question.option_b,
       option_c: question.option_c,
+      option_d: question.option_d || '',
       correct_answer: correctAnswerArray,
       explanation: question.explanation || '',
       image_url: question.image_url || '',
@@ -256,6 +306,7 @@ const Admin = () => {
       option_a: '',
       option_b: '',
       option_c: '',
+      option_d: '',
       correct_answer: ['A'],
       explanation: '',
       image_url: '',
@@ -685,21 +736,55 @@ const Admin = () => {
             </div>
           </div>
           <div className="questions-grid">
-            {questionsMap.questions.map(q => (
-              <div
-                key={q.id}
-                className={`question-grid-item status-${q.image_status}`}
-                title={`#${q.question_number || q.id}: ${q.question_text.substring(0, 50)}${q.question_text.length > 50 ? '...' : ''}`}
-              >
-                <div className="grid-item-number">
-                  {q.question_number || q.id}
-                </div>
-                <div className="grid-item-status">
-                  {q.image_status === 'complete' && '✓'}
-                  {q.image_status === 'missing' && '!'}
-                  {q.image_status === 'not_required' && '○'}
-                </div>
-                <div className="grid-item-actions">
+            {questionsMap.questions.map(q => {
+              const fullQuestion = questions.find(fq => fq.id === q.id);
+              const optionsCount = fullQuestion ? ['option_a', 'option_b', 'option_c', 'option_d'].filter(key => fullQuestion[key]).length : 0;
+              const correctAnswers = fullQuestion ? (Array.isArray(fullQuestion.correct_answer) ? fullQuestion.correct_answer : fullQuestion.correct_answer.split(',')).length : 0;
+              
+              return (
+                <div
+                  key={q.id}
+                  className={`question-grid-item status-${q.image_status}`}
+                >
+                  <div className="grid-item-header">
+                    <div className="grid-item-number">
+                      <span className="number-badge">#{q.question_number || q.id}</span>
+                    </div>
+                    <div className="grid-item-status">
+                      {q.image_status === 'complete' && <span className="status-badge complete">✓</span>}
+                      {q.image_status === 'missing' && <span className="status-badge missing">!</span>}
+                      {q.image_status === 'not_required' && <span className="status-badge not-required">○</span>}
+                    </div>
+                  </div>
+                  
+                  <div className="grid-item-preview">
+                    <p className="question-preview-text">{q.question_text.substring(0, 60)}{q.question_text.length > 60 ? '...' : ''}</p>
+                  </div>
+                  
+                  <div className="grid-item-info">
+                    <div className="info-badge">
+                      <span className="info-icon">🔤</span>
+                      <span className="info-text">{optionsCount} opciones</span>
+                    </div>
+                    <div className="info-badge success">
+                      <span className="info-icon">✓</span>
+                      <span className="info-text">{correctAnswers} correcta{correctAnswers !== 1 ? 's' : ''}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="grid-item-actions">
+                  <button
+                    className="btn-icon btn-view"
+                    onClick={() => {
+                      const fullQuestion = questions.find(fq => fq.id === q.id);
+                      if (fullQuestion) {
+                        setPreviewModal({ show: true, question: fullQuestion });
+                      }
+                    }}
+                    title="Ver pregunta"
+                  >
+                    👁️
+                  </button>
                   <button
                     className="btn-icon btn-edit"
                     onClick={() => {
@@ -715,47 +800,18 @@ const Admin = () => {
                     ✏️
                   </button>
                   {q.image_status === 'missing' && (
-                    <label
+                    <button
                       className="btn-icon btn-upload"
-                      title="Subir imagen"
+                      title="Subir imagen (Ctrl+V para pegar)"
+                      onClick={() => setQuickUploadModal({ show: true, questionId: q.id, questionNumber: q.question_number || q.id })}
                     >
                       📤
-                      <input
-                        type="file"
-                        accept="image/*"
-                        style={{ display: 'none' }}
-                        onChange={async (e) => {
-                          const file = e.target.files[0];
-                          if (!file) return;
-                          
-                          try {
-                            const formDataImage = new FormData();
-                            formDataImage.append('image', file);
-                            const uploadRes = await axios.post('/admin/upload-image', formDataImage, {
-                              headers: { 'Content-Type': 'multipart/form-data' }
-                            });
-                            
-                            // Actualizar la pregunta con la imagen
-                            const fullQuestion = questions.find(fq => fq.id === q.id);
-                            await axios.put(`/admin/questions/${q.id}`, {
-                              ...fullQuestion,
-                              image_url: uploadRes.data.imageUrl
-                            });
-                            
-                            alert('✅ Imagen agregada exitosamente');
-                            loadQuestionsMap();
-                            loadData();
-                          } catch (error) {
-                            console.error('Error al subir imagen:', error);
-                            alert('❌ Error al subir imagen');
-                          }
-                        }}
-                      />
-                    </label>
+                    </button>
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
           <div className="map-legend">
             <div className="legend-item">
@@ -851,6 +907,14 @@ const Admin = () => {
                     />
                     <span className="checkbox-label-text">Opción C</span>
                   </label>
+                  <label className="checkbox-option">
+                    <input
+                      type="checkbox"
+                      checked={formData.correct_answer.includes('D')}
+                      onChange={() => handleCorrectAnswerChange('D')}
+                    />
+                    <span className="checkbox-label-text">Opción D</span>
+                  </label>
                 </div>
                 {formData.correct_answer.length > 1 && (
                   <div className="multi-answer-note">
@@ -909,6 +973,18 @@ const Admin = () => {
                 required
                 className="form-control"
                 placeholder="Tercera opción"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Opción D <span className="optional-label">(opcional)</span></label>
+              <input
+                type="text"
+                name="option_d"
+                value={formData.option_d}
+                onChange={handleInputChange}
+                className="form-control"
+                placeholder="Cuarta opción (opcional)"
               />
             </div>
 
@@ -1184,6 +1260,141 @@ const Admin = () => {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Modal de Upload Rápido */}
+      {quickUploadModal.show && (
+        <div className="modal-overlay" onClick={() => setQuickUploadModal({ show: false, questionId: null, questionNumber: null })}>
+          <div className="modal-content quick-upload-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>📤 Subir Imagen - Pregunta #{quickUploadModal.questionNumber}</h3>
+              <button 
+                className="btn-close"
+                onClick={() => setQuickUploadModal({ show: false, questionId: null, questionNumber: null })}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <div 
+                className="quick-paste-area"
+                onPaste={(e) => handleQuickPaste(e, quickUploadModal.questionId)}
+                tabIndex={0}
+                autoFocus
+              >
+                <div className="paste-icon">📋</div>
+                <p className="paste-instructions">
+                  <strong>Presiona Ctrl+V para pegar una imagen</strong>
+                </p>
+                <p className="paste-hint">O arrastra una imagen aquí</p>
+              </div>
+              
+              <div className="upload-divider">
+                <span>o</span>
+              </div>
+              
+              <label className="btn btn-primary btn-block">
+                📁 Seleccionar archivo
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      handleQuickImageUpload(file, quickUploadModal.questionId);
+                    }
+                  }}
+                />
+              </label>
+              
+              {quickUploadingImage && (
+                <div className="uploading-indicator">
+                  <div className="spinner"></div>
+                  <span>Subiendo imagen...</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Vista Previa */}
+      {previewModal.show && previewModal.question && (
+        <div className="modal-overlay" onClick={() => setPreviewModal({ show: false, question: null })}>
+          <div className="modal-content preview-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>👁️ Vista Previa - Pregunta #{previewModal.question.question_number || previewModal.question.id}</h3>
+              <button 
+                className="btn-close"
+                onClick={() => setPreviewModal({ show: false, question: null })}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body preview-body">
+              {/* Número y Categoría */}
+              <div className="preview-header">
+                <div className="preview-number">
+                  <span className="label">Número</span>
+                  <span className="value">#{previewModal.question.question_number || previewModal.question.id}</span>
+                </div>
+                <div className="preview-category">
+                  <span className="label">Categoría</span>
+                  <span className="value">{categories.find(c => c.id === previewModal.question.category_id)?.name || 'Sin categoría'}</span>
+                </div>
+              </div>
+
+              {/* Pregunta */}
+              <div className="preview-question">
+                <h4>Pregunta:</h4>
+                <p>{previewModal.question.question_text}</p>
+              </div>
+
+              {/* Imagen */}
+              {previewModal.question.image_url && (
+                <div className="preview-image">
+                  <h4>Imagen:</h4>
+                  <img src={previewModal.question.image_url} alt="Imagen de la pregunta" />
+                </div>
+              )}
+
+              {/* Alternativas */}
+              <div className="preview-options">
+                <h4>Alternativas:</h4>
+                {(() => {
+                  const correctAnswers = Array.isArray(previewModal.question.correct_answer) 
+                    ? previewModal.question.correct_answer 
+                    : previewModal.question.correct_answer.split(',');
+                  
+                  return ['A', 'B', 'C', 'D'].map(option => {
+                    const optionKey = `option_${option.toLowerCase()}`;
+                    const optionText = previewModal.question[optionKey];
+                    const isCorrect = correctAnswers.includes(option);
+                    
+                    return optionText ? (
+                      <div key={option} className={`preview-option ${isCorrect ? 'correct' : ''}`}>
+                        <div className="option-label">
+                          <span className="option-letter">{option}</span>
+                          {isCorrect && <span className="correct-badge">✓ Correcta</span>}
+                        </div>
+                        <div className="option-text">{optionText}</div>
+                      </div>
+                    ) : null;
+                  });
+                })()}
+              </div>
+
+              {/* Explicación */}
+              {previewModal.question.explanation && (
+                <div className="preview-explanation">
+                  <h4>💡 Explicación:</h4>
+                  <p>{previewModal.question.explanation}</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
