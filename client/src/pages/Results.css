@@ -233,12 +233,32 @@
   color: var(--dark);
 }
 
+.option-badges {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .badge {
   padding: 4px 12px;
   border-radius: 12px;
   font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge.correct-badge {
   background: #10b981;
+  color: var(--white);
+}
+
+.badge.wrong-badge {
+  background: #ef4444;
+  color: var(--white);
+}
+
+.badge.correct-user-badge {
+  background: #059669;
   color: var(--white);
 }
 

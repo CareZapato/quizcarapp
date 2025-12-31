@@ -107,6 +107,87 @@
   50% { opacity: 0.7; }
 }
 
+.quiz-timer.practice-timer {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  font-size: 28px;
+  padding: 14px 28px;
+  box-shadow: 0 4px 8px rgba(245, 158, 11, 0.3);
+}
+
+.practice-stats {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.practice-stats span {
+  background: #f3f4f6;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.practice-stats .stat-correct {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.practice-stats .stat-total {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.practice-stats .stat-percentage {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  font-weight: 700;
+}
+
+.practice-info {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 2px solid #f59e0b;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  margin-top: 20px;
+}
+
+.practice-info p {
+  margin: 8px 0;
+  color: #92400e;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.confirm-button {
+  margin-top: 20px;
+  width: 100%;
+  padding: 16px 24px;
+  font-size: 18px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.confirm-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+.confirm-button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .quiz-content {
   background: var(--white);
   border-radius: 12px;
@@ -222,6 +303,17 @@
   color: #1e40af;
   font-weight: 600;
   box-shadow: 0 2px 6px rgba(59, 130, 246, 0.15);
+}
+
+.multi-answer-empty-info {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: #f3f4f6;
+  border-left: 4px solid #9ca3af;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #4b5563;
+  font-weight: 600;
 }
 
 .multi-answer-info {

@@ -7,7 +7,7 @@ import './Results.css';
 const Results = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showAnswers, setShowAnswers] = useState(false);
+  const [showAnswers, setShowAnswers] = useState(true);
   
   const { quizId } = useParams();
   const navigate = useNavigate();
@@ -140,7 +140,11 @@ const Results = () => {
             <FaTrophy style={{ color: '#f59e0b' }} />
           </div>
           <div className="stat-info">
-            <h3>{quiz.mode === 'real' ? 'Modo Real' : 'Modo Extenso'}</h3>
+            <h3>
+              {quiz.mode === 'real' && 'Modo Real'}
+              {quiz.mode === 'extended' && 'Modo Extenso'}
+              {quiz.mode === 'practice' && 'Modo Práctica'}
+            </h3>
             <p>{quiz.totalQuestions} Preguntas</p>
           </div>
         </div>
@@ -161,19 +165,24 @@ const Results = () => {
         {showAnswers && (
           <div className="answers-list">
             {answers.map((answer, index) => {
-              const isCorrect = answer.is_correct === 1;
-              const userAnswered = answer.user_answer !== null;
+              const isCorrect = answer.is_correct === true || answer.is_correct === 1;
+              const userAnswered = answer.user_answer !== null && answer.user_answer !== '';
               
               return (
                 <div key={answer.id} className={`answer-item ${isCorrect ? 'correct' : 'incorrect'} ${!userAnswered ? 'unanswered' : ''}`}>
                   <div className="answer-header">
                     <div className="answer-number">
-                      {isCorrect ? (
+                      {!userAnswered ? (
+                        <FaTimesCircle style={{ color: '#9ca3af' }} />
+                      ) : isCorrect ? (
                         <FaCheckCircle style={{ color: '#10b981' }} />
                       ) : (
                         <FaTimesCircle style={{ color: '#ef4444' }} />
                       )}
                       <span>Pregunta {index + 1}</span>
+                      {answer.has_multiple_answers && (
+                        <span className="badge multi-badge">Múltiple</span>
+                      )}
                     </div>
                     <span className="answer-category">{answer.category_name}</span>
                   </div>
@@ -219,8 +228,11 @@ const Results = () => {
                         <div key={option} className={className}>
                           <span className="option-letter">{option}</span>
                           <span className="option-text">{optionText}</span>
-                          {isCorrectAnswer && <span className="badge">Correcta</span>}
-                          {isUserAnswer && !isCorrect && <span className="badge wrong">Tu respuesta</span>}
+                          <div className="option-badges">
+                            {isCorrectAnswer && !isUserAnswer && <span className="badge correct-badge">✓ Correcta</span>}
+                            {isUserAnswer && !isCorrectAnswer && <span className="badge wrong-badge">✗ Tu respuesta</span>}
+                            {isUserAnswer && isCorrectAnswer && <span className="badge correct-user-badge">✓ Tu respuesta correcta</span>}
+                          </div>
                         </div>
                       );
                     })}
@@ -252,12 +264,27 @@ const Results = () => {
         >
           <FaHome /> Volver al Inicio
         </button>
-        <button
-          className="btn btn-success"
-          onClick={() => navigate('/quiz', { state: { mode: quiz.mode } })}
-        >
-          Intentar de Nuevo
-        </button>
+        {quiz.mode !== 'practice' && (
+          <button
+            className="btn btn-success"
+            onClick={() => navigate('/quiz', { state: { mode: quiz.mode } })}
+          >
+            Intentar de Nuevo
+          </button>
+        )}
+        {quiz.mode === 'practice' && (
+          <button
+            className="btn btn-success"
+            onClick={() => {
+              navigate('/dashboard');
+              setTimeout(() => {
+                navigate('/quiz', { state: { mode: 'practice' } });
+              }, 100);
+            }}
+          >
+            Nueva Práctica
+          </button>
+        )}
       </div>
     </div>
   );

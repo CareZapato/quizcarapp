@@ -98,6 +98,16 @@
   transform: translateY(-4px);
 }
 
+.mode-card.practice-mode {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-color: #f59e0b;
+}
+
+.mode-card.practice-mode:hover {
+  border-color: #d97706;
+  box-shadow: 0 8px 16px rgba(245, 158, 11, 0.3);
+}
+
 .mode-icon {
   font-size: 48px;
   margin-bottom: 16px;

@@ -180,6 +180,26 @@ const Dashboard = () => {
               <FaPlay /> Iniciar Modo Extenso
             </button>
           </div>
+
+          <div className="mode-card practice-mode">
+            <div className="mode-icon">⚡</div>
+            <h3>Modo Práctica</h3>
+            <div className="mode-details">
+              <p><strong>∞ Preguntas</strong></p>
+              <p><FaClock /> 1 min por pregunta</p>
+              <p>Sin límite</p>
+            </div>
+            <p className="mode-description">
+              Practica sin límites. Responde preguntas al azar, una tras otra. ¡Sal cuando quieras!
+            </p>
+            <button 
+              onClick={() => startQuiz('practice')} 
+              className="btn btn-success"
+              disabled={hasActiveQuiz}
+            >
+              <FaPlay /> Iniciar Práctica
+            </button>
+          </div>
         </div>
       </div>
 

@@ -12,6 +12,11 @@ const Quiz = () => {
   const [timeLeft, setTimeLeft] = useState(0);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [isPracticeMode, setIsPracticeMode] = useState(false);
+  const [practiceStats, setPracticeStats] = useState({ correct: 0, total: 0 });
+  const [questionTimeLeft, setQuestionTimeLeft] = useState(60);
+  const [loadingNext, setLoadingNext] = useState(false);
+  const [abandoning, setAbandoning] = useState(false);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -23,14 +28,37 @@ const Quiz = () => {
   }, []);
 
   useEffect(() => {
-    if (timeLeft <= 0) return;
+    // Timer para modo normal (tiempo total)
+    if (!isPracticeMode && timeLeft <= 0) return;
+
+    if (!isPracticeMode) {
+      const timer = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            handleSubmit();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft, isPracticeMode]);
+
+  useEffect(() => {
+    // Timer por pregunta en modo práctica
+    if (!isPracticeMode) return;
+    if (questionTimeLeft <= 0) return;
 
     const timer = setInterval(() => {
-      setTimeLeft(prev => {
+      setQuestionTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(timer);
-          handleSubmit();
-          return 0;
+          handleNextPracticeQuestion();
+          return 60;
         }
         return prev - 1;
       });
@@ -38,7 +66,7 @@ const Quiz = () => {
 
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft]);
+  }, [questionTimeLeft, isPracticeMode, currentIndex]);
 
   const initQuiz = async () => {
     try {
@@ -109,10 +137,18 @@ const Quiz = () => {
           id: response.data.quizId,
           mode: response.data.mode,
           totalQuestions: response.data.totalQuestions,
-          timeLimit: response.data.timeLimit
+          timeLimit: response.data.timeLimit,
+          isInfinite: response.data.isInfinite || false
         });
         setQuestions(response.data.questions);
-        setTimeLeft(response.data.timeLimit);
+        setIsPracticeMode(response.data.isInfinite || false);
+        
+        if (response.data.isInfinite) {
+          setQuestionTimeLeft(60);
+        } else {
+          setTimeLeft(response.data.timeLimit);
+        }
+        
         setLoading(false);
       } else {
         // No hay modo especificado ni cuestionario en progreso
@@ -136,30 +172,22 @@ const Quiz = () => {
       
       // Si la pregunta tiene múltiples respuestas correctas, siempre usar modo array
       if (question?.has_multiple_answers) {
+        // Normalizar currentAnswer a array o null
+        let currentArray = null;
         if (Array.isArray(currentAnswer)) {
-          // Ya es array
-          if (currentAnswer.includes(answer)) {
-            // Remover respuesta
-            newAnswer = currentAnswer.filter(a => a !== answer);
-            if (newAnswer.length === 0) {
-              // Permitir deseleccionar todas (deja la pregunta sin responder)
-              newAnswer = null;
-            }
-          } else {
-            // Agregar respuesta
-            newAnswer = [...currentAnswer, answer].sort();
-          }
+          currentArray = currentAnswer;
         } else if (currentAnswer) {
-          // Convertir a array
-          if (currentAnswer === answer) {
-            // Deseleccionar
-            newAnswer = null;
-          } else {
-            newAnswer = [currentAnswer, answer].sort();
-          }
+          currentArray = [currentAnswer];
+        }
+        
+        if (currentArray && currentArray.includes(answer)) {
+          // Deseleccionar: remover la opción del array
+          const filtered = currentArray.filter(a => a !== answer);
+          // SIEMPRE permitir deseleccionar, incluso si es la última
+          newAnswer = filtered.length > 0 ? filtered : null;
         } else {
-          // Primera selección en modo múltiple
-          newAnswer = [answer];
+          // Seleccionar: agregar la opción
+          newAnswer = currentArray ? [...currentArray, answer].sort() : [answer];
         }
       } else {
         // Modo respuesta única
@@ -172,8 +200,8 @@ const Quiz = () => {
         }
       }
       
-      // Si newAnswer es null, eliminar la respuesta
-      if (newAnswer === null) {
+      // Si newAnswer es null o undefined, eliminar la respuesta completamente
+      if (newAnswer === null || newAnswer === undefined) {
         await axios.post('/quiz/answer', {
           quizId: quiz.id,
           questionId,
@@ -185,10 +213,12 @@ const Quiz = () => {
           delete newAnswers[questionId];
           return newAnswers;
         });
+        
+        console.log(`✓ Respuesta eliminada para pregunta ${questionId}`);
         return;
       }
       
-      await axios.post('/quiz/answer', {
+      const response = await axios.post('/quiz/answer', {
         quizId: quiz.id,
         questionId,
         userAnswer: newAnswer
@@ -198,8 +228,55 @@ const Quiz = () => {
         ...prev,
         [questionId]: newAnswer
       }));
+      
+      console.log(`✓ Respuesta guardada para pregunta ${questionId}:`, newAnswer);
+
+      // En modo práctica, avanzar automáticamente SOLO si es respuesta única
+      if (isPracticeMode && !question?.has_multiple_answers) {
+        // Actualizar estadísticas
+        setPracticeStats(prev => ({
+          correct: prev.correct + (response.data.isCorrect ? 1 : 0),
+          total: prev.total + 1
+        }));
+
+        // Esperar un momento para mostrar feedback y avanzar
+        setTimeout(() => {
+          handleNextPracticeQuestion();
+        }, 800);
+      }
     } catch (error) {
       console.error('Error al guardar respuesta:', error);
+    }
+  };
+
+  const handleNextPracticeQuestion = async () => {
+    if (loadingNext) return;
+    
+    try {
+      setLoadingNext(true);
+      
+      // Obtener siguiente pregunta
+      const response = await axios.post('/quiz/next-question', {
+        quizId: quiz.id
+      });
+
+      // Agregar la nueva pregunta a la lista
+      setQuestions(prev => [...prev, response.data.question]);
+      
+      // Limpiar respuesta anterior
+      setAnswers({});
+      
+      // Avanzar al siguiente índice
+      setCurrentIndex(prev => prev + 1);
+      
+      // Resetear timer de pregunta
+      setQuestionTimeLeft(60);
+      
+      setLoadingNext(false);
+    } catch (error) {
+      console.error('Error al obtener siguiente pregunta:', error);
+      alert('Error al cargar la siguiente pregunta');
+      setLoadingNext(false);
     }
   };
 
@@ -232,20 +309,50 @@ const Quiz = () => {
   };
 
   const handleAbandon = async () => {
+    if (abandoning) return; // Prevenir múltiples clicks
+    
+    // En modo práctica, completar el quiz y mostrar resultados
+    if (isPracticeMode) {
+      if (!window.confirm('¿Deseas terminar la práctica y ver tus resultados?')) {
+        return;
+      }
+      
+      setSubmitting(true);
+      
+      try {
+        const timeTaken = quiz.timeLimit - timeLeft;
+        await axios.post('/quiz/complete', {
+          quizId: quiz.id,
+          timeTaken
+        });
+        
+        navigate(`/results/${quiz.id}`);
+      } catch (error) {
+        console.error('Error al completar práctica:', error);
+        alert('Error al terminar la práctica');
+        setSubmitting(false);
+      }
+      return;
+    }
+    
+    // Para otros modos, abandonar normalmente
     if (!window.confirm('¿Estás seguro de que deseas abandonar este cuestionario? Perderás todo el progreso.')) {
       return;
     }
 
+    setAbandoning(true);
+    
     try {
       await axios.post('/quiz/abandon', {
         quizId: quiz.id
       });
       
-      alert('Cuestionario abandonado exitosamente');
-      navigate('/dashboard');
+      // Forzar recarga completa para asegurar que el dashboard se actualice
+      window.location.href = '/dashboard';
     } catch (error) {
       console.error('Error al abandonar cuestionario:', error);
       alert('Error al abandonar el cuestionario');
+      setAbandoning(false);
     }
   };
 
@@ -316,37 +423,57 @@ const Quiz = () => {
       {/* Header */}
       <div className="quiz-header">
         <div className="quiz-progress">
-          <span>Pregunta {currentIndex + 1} de {questions.length}</span>
-          <div className="progress-bar">
-            <div 
-              className="progress-fill" 
-              style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
-            />
-          </div>
-          <span>{getAnsweredCount()} respondidas</span>
+          {isPracticeMode ? (
+            <>
+              <span>Pregunta {currentIndex + 1}</span>
+              <div className="practice-stats">
+                <span className="stat-correct">✓ {practiceStats.correct} correctas</span>
+                <span className="stat-total">📊 {practiceStats.total} respondidas</span>
+                {practiceStats.total > 0 && (
+                  <span className="stat-percentage">
+                    {((practiceStats.correct / practiceStats.total) * 100).toFixed(1)}% acierto
+                  </span>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <span>Pregunta {currentIndex + 1} de {questions.length}</span>
+              <div className="progress-bar">
+                <div 
+                  className="progress-fill" 
+                  style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
+                />
+              </div>
+              <span>{getAnsweredCount()} respondidas</span>
+            </>
+          )}
         </div>
         
         <div className="quiz-header-actions">
           <button
             className="btn btn-danger btn-small"
             onClick={handleAbandon}
+            disabled={abandoning}
             title="Abandonar cuestionario"
           >
-            ✕ Abandonar
+            {abandoning ? '⏳ Saliendo...' : `✕ ${isPracticeMode ? 'Terminar Práctica' : 'Abandonar'}`}
           </button>
           
-          <button
-            className="btn btn-success btn-small"
-            onClick={handleSubmit}
-            disabled={submitting}
-            title="Terminar y entregar cuestionario"
-          >
-            {submitting ? 'Entregando...' : '✓ Entregar'}
-          </button>
+          {!isPracticeMode && (
+            <button
+              className="btn btn-success btn-small"
+              onClick={handleSubmit}
+              disabled={submitting}
+              title="Terminar y entregar cuestionario"
+            >
+              {submitting ? 'Entregando...' : '✓ Entregar'}
+            </button>
+          )}
           
-          <div className={`quiz-timer ${timeLeft < 300 ? 'warning' : ''}`}>
+          <div className={`quiz-timer ${isPracticeMode ? 'practice-timer' : ''} ${timeLeft < 300 || questionTimeLeft < 10 ? 'warning' : ''}`}>
             <FaClock />
-            <span>{formatTime(timeLeft)}</span>
+            <span>{isPracticeMode ? formatTime(questionTimeLeft) : formatTime(timeLeft)}</span>
           </div>
         </div>
       </div>
@@ -405,52 +532,112 @@ const Quiz = () => {
           {(() => {
             const currentAnswer = answers[currentQuestion.id];
             const isMultiAnswer = Array.isArray(currentAnswer);
-            return isMultiAnswer && currentAnswer.length > 0 && (
-              <div className="multi-answer-selected-info">
-                📌 Respuestas seleccionadas: {currentAnswer.join(', ')} ({currentAnswer.length} {currentAnswer.length === 1 ? 'opción' : 'opciones'})
-              </div>
-            );
+            
+            // Mostrar contador de selecciones si hay respuestas
+            if (isMultiAnswer && currentAnswer.length > 0) {
+              return (
+                <div className="multi-answer-selected-info">
+                  📌 Respuestas seleccionadas: {currentAnswer.join(', ')} ({currentAnswer.length} {currentAnswer.length === 1 ? 'opción' : 'opciones'})
+                </div>
+              );
+            }
+            
+            // Mostrar mensaje si es multi-respuesta pero no hay selecciones
+            if (currentQuestion.has_multiple_answers && !currentAnswer) {
+              return (
+                <div className="multi-answer-empty-info">
+                  ℹ️ Esta pregunta permite múltiples respuestas. Selecciona las opciones correctas.
+                </div>
+              );
+            }
+            
+            return null;
           })()}
-        </div>
-
-        {/* Navigation */}
-        <div className="quiz-navigation">
-          <button
-            className="btn btn-secondary"
-            onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
-            disabled={currentIndex === 0}
-          >
-            ← Anterior
-          </button>
           
-          <div className="question-dots">
-            {questions.map((_, index) => (
-              <button
-                key={index}
-                className={`dot ${index === currentIndex ? 'active' : ''} ${answers[questions[index].id] ? 'answered' : ''}`}
-                onClick={() => setCurrentIndex(index)}
-                title={`Pregunta ${index + 1}`}
-              />
-            ))}
-          </div>
-          
-          {currentIndex < questions.length - 1 ? (
+          {/* Botón de confirmar en modo práctica con selección múltiple */}
+          {isPracticeMode && currentQuestion.has_multiple_answers && answers[currentQuestion.id] && (
             <button
-              className="btn btn-primary"
-              onClick={() => setCurrentIndex(prev => Math.min(questions.length - 1, prev + 1))}
+              className="btn btn-success btn-large confirm-button"
+              onClick={async () => {
+                const currentAnswer = answers[currentQuestion.id];
+                if (!currentAnswer) return;
+                
+                try {
+                  const response = await axios.post('/quiz/answer', {
+                    quizId: quiz.id,
+                    questionId: currentQuestion.id,
+                    userAnswer: currentAnswer
+                  });
+                  
+                  // Actualizar estadísticas
+                  setPracticeStats(prev => ({
+                    correct: prev.correct + (response.data.isCorrect ? 1 : 0),
+                    total: prev.total + 1
+                  }));
+                  
+                  // Avanzar a la siguiente pregunta
+                  setTimeout(() => {
+                    handleNextPracticeQuestion();
+                  }, 800);
+                } catch (error) {
+                  console.error('Error al confirmar respuesta:', error);
+                }
+              }}
+              disabled={loadingNext}
             >
-              Siguiente →
-            </button>
-          ) : (
-            <button
-              className="btn btn-success"
-              onClick={handleSubmit}
-              disabled={submitting}
-            >
-              {submitting ? 'Entregando...' : 'Entregar Cuestionario'}
+              {loadingNext ? '⏳ Cargando...' : '✓ Confirmar y Continuar'}
             </button>
           )}
         </div>
+
+        {/* Navigation */}
+        {!isPracticeMode && (
+          <div className="quiz-navigation">
+            <button
+              className="btn btn-secondary"
+              onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
+              disabled={currentIndex === 0}
+            >
+              ← Anterior
+            </button>
+            
+            <div className="question-dots">
+              {questions.map((_, index) => (
+                <button
+                  key={index}
+                  className={`dot ${index === currentIndex ? 'active' : ''} ${answers[questions[index].id] ? 'answered' : ''}`}
+                  onClick={() => setCurrentIndex(index)}
+                  title={`Pregunta ${index + 1}`}
+                />
+              ))}
+            </div>
+            
+            {currentIndex < questions.length - 1 ? (
+              <button
+                className="btn btn-primary"
+                onClick={() => setCurrentIndex(prev => Math.min(questions.length - 1, prev + 1))}
+              >
+                Siguiente →
+              </button>
+            ) : (
+              <button
+                className="btn btn-success"
+                onClick={handleSubmit}
+                disabled={submitting}
+              >
+                {submitting ? 'Entregando...' : 'Entregar Cuestionario'}
+              </button>
+            )}
+          </div>
+        )}
+        
+        {isPracticeMode && (
+          <div className="practice-info">
+            <p>⚡ Respuesta única: Avanza automáticamente al seleccionar</p>
+            <p>✓ Respuesta múltiple: Selecciona tus opciones y presiona "Confirmar"</p>
+            <p>⏱️ Si se acaba el tiempo, pasarás a la siguiente pregunta automáticamente</p>
+          </div>
+        )}
       </div>
     </div>
   );

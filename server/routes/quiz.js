@@ -17,6 +17,13 @@ const QUIZ_MODES = {
     totalQuestions: 100,
     timeLimit: 90 * 60, // 90 minutos en segundos
     passingScore: 80 // 80% para aprobar
+  },
+  PRACTICE: {
+    name: 'practice',
+    totalQuestions: null, // Infinitas
+    timeLimit: 60, // 60 segundos por pregunta
+    passingScore: 0, // Sin puntaje mínimo
+    isInfinite: true
   }
 };
 
@@ -78,23 +85,44 @@ router.post('/start', authMiddleware, async (req, res) => {
     const { mode } = req.body;
     const userId = req.userId;
 
-    const quizConfig = mode === 'extended' ? QUIZ_MODES.EXTENDED : QUIZ_MODES.REAL;
+    let quizConfig;
+    if (mode === 'practice') {
+      quizConfig = QUIZ_MODES.PRACTICE;
+    } else if (mode === 'extended') {
+      quizConfig = QUIZ_MODES.EXTENDED;
+    } else {
+      quizConfig = QUIZ_MODES.REAL;
+    }
 
-    // Seleccionar preguntas proporcionalmente
-    const questions = await selectProportionalQuestions(quizConfig.totalQuestions);
+    // Para modo práctica, solo tomar 1 pregunta aleatoria al inicio
+    let questions;
+    if (quizConfig.isInfinite) {
+      questions = await dbAll(
+        'SELECT * FROM questions ORDER BY RANDOM() LIMIT 1'
+      );
+    } else {
+      // Seleccionar preguntas proporcionalmente para otros modos
+      questions = await selectProportionalQuestions(quizConfig.totalQuestions);
+    }
 
-    if (questions.length < quizConfig.totalQuestions) {
+    // Validar que haya preguntas disponibles
+    if (questions.length === 0) {
+      return res.status(400).json({ error: 'No hay preguntas disponibles' });
+    }
+
+    // Validar preguntas solo para modos no infinitos
+    if (!quizConfig.isInfinite && questions.length < quizConfig.totalQuestions) {
       return res.status(400).json({
         error: `No hay suficientes preguntas. Se requieren ${quizConfig.totalQuestions}, solo hay ${questions.length}`
       });
     }
 
-    // Crear el cuestionario
+    // Crear el cuestionario (para modo infinito, total_questions es 0 inicialmente)
     const quizResult = await dbRun(
       `INSERT INTO quizzes (user_id, mode, total_questions, time_limit)
        VALUES ($1, $2, $3, $4)
        RETURNING id`,
-      [userId, quizConfig.name, quizConfig.totalQuestions, quizConfig.timeLimit]
+      [userId, quizConfig.name, quizConfig.isInfinite ? 0 : quizConfig.totalQuestions, quizConfig.timeLimit]
     );
 
     const quizId = quizResult.id;
@@ -124,10 +152,11 @@ router.post('/start', authMiddleware, async (req, res) => {
     res.json({
       quizId,
       mode: quizConfig.name,
-      totalQuestions: quizConfig.totalQuestions,
+      totalQuestions: quizConfig.isInfinite ? null : quizConfig.totalQuestions,
       timeLimit: quizConfig.timeLimit,
       questions: questionsForClient,
-      startedAt: new Date().toISOString()
+      startedAt: new Date().toISOString(),
+      isInfinite: quizConfig.isInfinite || false
     });
   } catch (error) {
     console.error('Error al iniciar cuestionario:', error);
@@ -159,7 +188,7 @@ router.post('/answer', authMiddleware, async (req, res) => {
     if (userAnswer === null || userAnswer === undefined) {
       await dbRun(
         `UPDATE user_answers 
-         SET user_answer = NULL, is_correct = 0
+         SET user_answer = NULL, is_correct = FALSE
          WHERE quiz_id = $1 AND question_id = $2`,
         [quizId, questionId]
       );
@@ -197,7 +226,7 @@ router.post('/answer', authMiddleware, async (req, res) => {
       `UPDATE user_answers 
        SET user_answer = $1, is_correct = $2
        WHERE quiz_id = $3 AND question_id = $4`,
-      [userAnswerStr, isCorrect ? 1 : 0, quizId, questionId]
+      [userAnswerStr, isCorrect, quizId, questionId]
     );
 
     res.json({
@@ -207,6 +236,87 @@ router.post('/answer', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Error al guardar respuesta:', error);
     res.status(500).json({ error: 'Error al guardar respuesta' });
+  }
+});
+
+// Obtener siguiente pregunta para modo práctica
+router.post('/next-question', authMiddleware, async (req, res) => {
+  try {
+    const { quizId } = req.body;
+    const userId = req.userId;
+
+    // Verificar que el cuestionario pertenece al usuario y es modo práctica
+    const quiz = await dbGet(
+      'SELECT * FROM quizzes WHERE id = $1 AND user_id = $2 AND mode = $3',
+      [quizId, userId, 'practice']
+    );
+
+    if (!quiz) {
+      return res.status(404).json({ error: 'Cuestionario no encontrado o no es modo práctica' });
+    }
+
+    // Obtener IDs de preguntas ya respondidas
+    const answeredQuestions = await dbAll(
+      'SELECT question_id FROM user_answers WHERE quiz_id = $1',
+      [quizId]
+    );
+
+    const answeredIds = answeredQuestions.map(q => q.question_id);
+
+    // Seleccionar una nueva pregunta al azar (evitando las ya respondidas si es posible)
+    let newQuestion;
+    if (answeredIds.length > 0) {
+      newQuestion = await dbGet(
+        `SELECT * FROM questions 
+         WHERE id NOT IN (${answeredIds.join(',')})
+         ORDER BY RANDOM() 
+         LIMIT 1`
+      );
+    }
+
+    // Si no hay preguntas nuevas, reciclar una al azar
+    if (!newQuestion) {
+      newQuestion = await dbGet(
+        'SELECT * FROM questions ORDER BY RANDOM() LIMIT 1'
+      );
+    }
+
+    if (!newQuestion) {
+      return res.status(400).json({ error: 'No hay preguntas disponibles' });
+    }
+
+    // Insertar la nueva pregunta en user_answers
+    await dbRun(
+      'INSERT INTO user_answers (quiz_id, question_id) VALUES ($1, $2)',
+      [quizId, newQuestion.id]
+    );
+
+    // Incrementar total_questions en el quiz
+    await dbRun(
+      'UPDATE quizzes SET total_questions = total_questions + 1 WHERE id = $1',
+      [quizId]
+    );
+
+    // Preparar pregunta para el cliente
+    const questionForClient = {
+      id: newQuestion.id,
+      question_text: newQuestion.question_text,
+      option_a: newQuestion.option_a,
+      option_b: newQuestion.option_b,
+      option_c: newQuestion.option_c,
+      option_d: newQuestion.option_d || null,
+      option_e: newQuestion.option_e || null,
+      image_url: newQuestion.image_url,
+      category_id: newQuestion.category_id,
+      has_multiple_answers: newQuestion.correct_answer.includes(',')
+    };
+
+    res.json({
+      question: questionForClient
+    });
+  } catch (error) {
+    console.error('Error al obtener siguiente pregunta:', error);
+    res.status(500).json({ error: 'Error al obtener siguiente pregunta' });
   }
 });
 
@@ -230,7 +340,7 @@ router.post('/complete', authMiddleware, async (req, res) => {
     const correctAnswers = await dbGet(
       `SELECT COUNT(*) as count 
        FROM user_answers 
-       WHERE quiz_id = $1 AND is_correct = 1`,
+       WHERE quiz_id = $1 AND is_correct = TRUE`,
       [quizId]
     );
 
@@ -242,25 +352,48 @@ router.post('/complete', authMiddleware, async (req, res) => {
     );
 
     const correctCount = correctAnswers.count;
-    const score = (correctCount / quiz.total_questions) * 100;
+    
+    // Para el modo práctica, calcular el score basado en preguntas respondidas
+    let totalForScore = quiz.total_questions;
+    if (quiz.mode === 'practice') {
+      totalForScore = totalAnswered.count || 1; // Evitar división por cero
+    }
+    
+    const score = (correctCount / totalForScore) * 100;
     
     // Determinar si aprobó según el modo
-    const quizConfig = quiz.mode === 'extended' ? QUIZ_MODES.EXTENDED : QUIZ_MODES.REAL;
+    let quizConfig;
+    if (quiz.mode === 'extended') {
+      quizConfig = QUIZ_MODES.EXTENDED;
+    } else if (quiz.mode === 'practice') {
+      quizConfig = QUIZ_MODES.PRACTICE;
+    } else {
+      quizConfig = QUIZ_MODES.REAL;
+    }
     const passed = score >= quizConfig.passingScore;
 
-    // Actualizar el cuestionario
-    await dbRun(
-      `UPDATE quizzes 
-       SET correct_answers = $1, score = $2, time_taken = $3, completed = TRUE, passed = $4, completed_at = CURRENT_TIMESTAMP
-       WHERE id = $5`,
-      [correctCount, score, timeTaken, passed ? 1 : 0, quizId]
-    );
+    // Actualizar el cuestionario (actualizar total_questions para modo práctica)
+    if (quiz.mode === 'practice') {
+      await dbRun(
+        `UPDATE quizzes 
+         SET total_questions = $1, correct_answers = $2, score = $3, time_taken = $4, completed = TRUE, passed = $5, completed_at = CURRENT_TIMESTAMP
+         WHERE id = $6`,
+        [totalAnswered.count, correctCount, score, timeTaken, passed, quizId]
+      );
+    } else {
+      await dbRun(
+        `UPDATE quizzes 
+         SET correct_answers = $1, score = $2, time_taken = $3, completed = TRUE, passed = $4, completed_at = CURRENT_TIMESTAMP
+         WHERE id = $5`,
+        [correctCount, score, timeTaken, passed, quizId]
+      );
+    }
 
     // Actualizar progreso del usuario por categoría
     const answeredByCategory = await dbAll(
       `SELECT q.category_id, 
               COUNT(*) as total,
-              SUM(CASE WHEN ua.is_correct = 1 THEN 1 ELSE 0 END) as correct
+              SUM(CASE WHEN ua.is_correct = TRUE THEN 1 ELSE 0 END) as correct
        FROM user_answers ua
        JOIN questions q ON ua.question_id = q.id
        WHERE ua.quiz_id = $1
@@ -274,8 +407,8 @@ router.post('/complete', authMiddleware, async (req, res) => {
          VALUES ($1, $2, $3, $4)
          ON CONFLICT(user_id, category_id) 
          DO UPDATE SET 
-           questions_answered = questions_answered + $5,
-           correct_answers = correct_answers + $6,
+           questions_answered = user_progress.questions_answered + $5,
+           correct_answers = user_progress.correct_answers + $6,
            last_updated = CURRENT_TIMESTAMP`,
         [userId, cat.category_id, cat.total, cat.correct, cat.total, cat.correct]
       );
@@ -368,7 +501,10 @@ router.get('/:quizId/results', authMiddleware, async (req, res) => {
         q.option_a,
         q.option_b,
         q.option_c,
+        q.option_d,
+        q.option_e,
         q.correct_answer,
+        q.has_multiple_answers,
         q.explanation,
         q.image_url,
         c.name as category_name
