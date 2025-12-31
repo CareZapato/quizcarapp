@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { FaClock, FaCheckCircle, FaTimesCircle, FaPlay } from 'react-icons/fa';
 import './Dashboard.css';
@@ -9,20 +9,28 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [hasActiveQuiz, setHasActiveQuiz] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [location]); // Recargar cuando cambie la ubicación
 
   const loadData = async () => {
     try {
+      console.log('=== Dashboard loadData() iniciado ===');
+      // Agregar timestamp para evitar caché
+      const timestamp = Date.now();
       const [statsRes, currentQuizRes] = await Promise.all([
-        axios.get('/stats/overview'),
-        axios.get('/quiz/current')
+        axios.get(`/stats/overview?_t=${timestamp}`),
+        axios.get(`/quiz/current?_t=${timestamp}`)
       ]);
+      
+      console.log('Respuesta de /quiz/current:', currentQuizRes.data);
+      console.log('hasActiveQuiz:', currentQuizRes.data.hasActiveQuiz);
       
       setStats(statsRes.data);
       setHasActiveQuiz(currentQuizRes.data.hasActiveQuiz);
+      console.log('=== Dashboard loadData() completado ===');
     } catch (error) {
       console.error('Error al cargar datos:', error);
     } finally {

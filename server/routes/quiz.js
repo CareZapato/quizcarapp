@@ -22,7 +22,7 @@ const QUIZ_MODES = {
     name: 'practice',
     totalQuestions: null, // Infinitas
     timeLimit: 60, // 60 segundos por pregunta
-    passingScore: 0, // Sin puntaje mínimo
+    passingScore: 85, // 85% para aprobar
     isInfinite: true
   }
 };
@@ -326,6 +326,11 @@ router.post('/complete', authMiddleware, async (req, res) => {
     const { quizId, timeTaken } = req.body;
     const userId = req.userId;
 
+    console.log('=== INICIO COMPLETE ===');
+    console.log('QuizId:', quizId);
+    console.log('UserId:', userId);
+    console.log('TimeTaken:', timeTaken);
+
     // Verificar que el cuestionario pertenece al usuario
     const quiz = await dbGet(
       'SELECT * FROM quizzes WHERE id = $1 AND user_id = $2',
@@ -333,8 +338,16 @@ router.post('/complete', authMiddleware, async (req, res) => {
     );
 
     if (!quiz) {
+      console.log('❌ Cuestionario no encontrado');
       return res.status(404).json({ error: 'Cuestionario no encontrado' });
     }
+
+    console.log('Quiz ANTES de completar:', {
+      id: quiz.id,
+      mode: quiz.mode,
+      completed: quiz.completed,
+      completed_type: typeof quiz.completed
+    });
 
     // Calcular resultados
     const correctAnswers = await dbGet(
@@ -374,20 +387,30 @@ router.post('/complete', authMiddleware, async (req, res) => {
 
     // Actualizar el cuestionario (actualizar total_questions para modo práctica)
     if (quiz.mode === 'practice') {
-      await dbRun(
+      const result = await dbRun(
         `UPDATE quizzes 
          SET total_questions = $1, correct_answers = $2, score = $3, time_taken = $4, completed = TRUE, passed = $5, completed_at = CURRENT_TIMESTAMP
          WHERE id = $6`,
         [totalAnswered.count, correctCount, score, timeTaken, passed, quizId]
       );
+      console.log('UPDATE para modo práctica - Rows affected:', result.changes);
     } else {
-      await dbRun(
+      const result = await dbRun(
         `UPDATE quizzes 
          SET correct_answers = $1, score = $2, time_taken = $3, completed = TRUE, passed = $4, completed_at = CURRENT_TIMESTAMP
          WHERE id = $5`,
         [correctCount, score, timeTaken, passed, quizId]
       );
+      console.log('UPDATE para modo normal/extended - Rows affected:', result.changes);
     }
+
+    // Verificar que se actualizó correctamente
+    const updatedQuiz = await dbGet(
+      'SELECT id, mode, completed, score, passed, completed_at FROM quizzes WHERE id = $1',
+      [quizId]
+    );
+    console.log('Quiz DESPUÉS de completar:', updatedQuiz);
+    console.log('=== FIN COMPLETE ===');
 
     // Actualizar progreso del usuario por categoría
     const answeredByCategory = await dbAll(
@@ -434,38 +457,69 @@ router.post('/abandon', authMiddleware, async (req, res) => {
     const { quizId } = req.body;
     const userId = req.userId;
 
-    console.log('Abandonando cuestionario:', { quizId, userId });
+    console.log('=== INICIO ABANDONO ===');
+    console.log('QuizId recibido:', quizId);
+    console.log('UserId:', userId);
 
-    // Verificar que el cuestionario pertenece al usuario
-    const quiz = await dbGet(
-      'SELECT * FROM quizzes WHERE id = $1 AND user_id = $2',
-      [quizId, userId]
-    );
-
-    if (!quiz) {
-      console.log('Cuestionario no encontrado');
-      return res.status(404).json({ error: 'Cuestionario no encontrado' });
-    }
-
-    if (quiz.completed) {
-      console.log('Cuestionario ya completado');
-      return res.status(400).json({ error: 'El cuestionario ya fue completado' });
-    }
-
-    // Eliminar las respuestas primero (clave foránea)
-    const deleteAnswers = await dbRun('DELETE FROM user_answers WHERE quiz_id = $1', [quizId]);
-    console.log('Respuestas eliminadas:', deleteAnswers.changes);
+    // CAMBIO: Eliminar TODOS los quizzes incompletos del usuario, no solo uno
+    // Esto soluciona el problema de múltiples quizzes activos
+    console.log('Buscando TODOS los quizzes incompletos del usuario...');
     
-    // Eliminar el cuestionario
-    const deleteQuiz = await dbRun('DELETE FROM quizzes WHERE id = $1', [quizId]);
-    console.log('Cuestionario eliminado:', deleteQuiz.changes);
+    const allIncompleteQuizzes = await dbAll(
+      'SELECT id FROM quizzes WHERE user_id = $1 AND completed = FALSE',
+      [userId]
+    );
+    
+    console.log('Quizzes incompletos encontrados:', allIncompleteQuizzes.length);
+    allIncompleteQuizzes.forEach(q => console.log('  - Quiz ID:', q.id));
 
-    res.json({
-      message: 'Cuestionario abandonado exitosamente',
-      deleted: true
-    });
+    if (allIncompleteQuizzes.length === 0) {
+      console.log('✅ No hay quizzes incompletos para eliminar');
+      return res.json({
+        message: 'No hay quizzes activos',
+        deleted: false
+      });
+    }
+
+    // Usar transacción para eliminar todos los quizzes incompletos
+    const pool = (await import('../config/database.js')).default;
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      // Eliminar las respuestas de TODOS los quizzes incompletos
+      const deleteAnswers = await client.query(
+        'DELETE FROM user_answers WHERE quiz_id IN (SELECT id FROM quizzes WHERE user_id = $1 AND completed = FALSE)',
+        [userId]
+      );
+      console.log('Respuestas eliminadas:', deleteAnswers.rowCount);
+      
+      // Eliminar TODOS los quizzes incompletos del usuario
+      const deleteQuizzes = await client.query(
+        'DELETE FROM quizzes WHERE user_id = $1 AND completed = FALSE',
+        [userId]
+      );
+      console.log('Cuestionarios eliminados:', deleteQuizzes.rowCount);
+      
+      await client.query('COMMIT');
+      console.log('✅ Transacción completada - todos los quizzes incompletos eliminados');
+      console.log('=== FIN ABANDONO ===');
+      
+      res.json({
+        message: 'Todos los cuestionarios incompletos eliminados exitosamente',
+        deleted: true,
+        count: deleteQuizzes.rowCount
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('❌ Error en transacción, haciendo rollback:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
   } catch (error) {
-    console.error('Error al abandonar cuestionario:', error);
+    console.error('❌ Error al abandonar cuestionario:', error);
     res.status(500).json({ error: 'Error al abandonar cuestionario' });
   }
 });
@@ -540,7 +594,24 @@ router.get('/:quizId/results', authMiddleware, async (req, res) => {
 // Obtener cuestionario en progreso
 router.get('/current', authMiddleware, async (req, res) => {
   try {
+    // Deshabilitar caché para este endpoint
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
     const userId = req.userId;
+
+    console.log('=== GET /current llamado ===');
+    console.log('UserId:', userId);
+    
+    // Primero ver TODOS los quizzes del usuario para debug
+    const allQuizzes = await dbAll(
+      `SELECT id, mode, completed, started_at, completed_at FROM quizzes 
+       WHERE user_id = $1 
+       ORDER BY started_at DESC`,
+      [userId]
+    );
+    console.log('Todos los quizzes del usuario:', allQuizzes);
 
     const quiz = await dbGet(
       `SELECT * FROM quizzes 
@@ -551,8 +622,17 @@ router.get('/current', authMiddleware, async (req, res) => {
     );
 
     if (!quiz) {
+      console.log('✅ No hay quiz activo (completed=FALSE)');
       return res.json({ hasActiveQuiz: false });
     }
+    
+    console.log('⚠️  Quiz activo encontrado:', {
+      id: quiz.id,
+      mode: quiz.mode,
+      completed: quiz.completed,
+      started_at: quiz.started_at,
+      completed_at: quiz.completed_at
+    });
 
     // Obtener todas las preguntas del cuestionario con sus respuestas (incluir opciones D y E)
     const questions = await dbAll(

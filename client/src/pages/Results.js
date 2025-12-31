@@ -8,6 +8,7 @@ const Results = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAnswers, setShowAnswers] = useState(true);
+  const [closing, setClosing] = useState(false);
   
   const { quizId } = useParams();
   const navigate = useNavigate();
@@ -19,7 +20,17 @@ const Results = () => {
 
   const loadResults = async () => {
     try {
+      console.log('=== CARGANDO RESULTADOS ===');
+      console.log('QuizId desde URL:', quizId);
+      
       const response = await axios.get(`/quiz/${quizId}/results`);
+      console.log('Datos de resultados recibidos:', {
+        quizId: response.data.quiz.id,
+        mode: response.data.quiz.mode,
+        completed: response.data.quiz.completed,
+        score: response.data.quiz.score
+      });
+      
       setData(response.data);
     } catch (error) {
       console.error('Error al cargar resultados:', error);
@@ -34,6 +45,59 @@ const Results = () => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleClose = async () => {
+    if (closing) return;
+    
+    setClosing(true);
+    
+    try {
+      // Obtener el quiz actual desde el servidor (igual que Dashboard)
+      const currentQuizRes = await axios.get('/quiz/current');
+      
+      if (!currentQuizRes.data.hasActiveQuiz) {
+        console.log('No hay quiz activo, navegando al dashboard...');
+        window.location.href = '/dashboard';
+        return;
+      }
+      
+      const currentQuizId = currentQuizRes.data.quiz.id;
+      console.log('Quiz activo en servidor:', currentQuizId);
+      console.log('Quiz desde URL:', quizId);
+      console.log('Enviando petición de cierre...');
+      
+      // Llamar al endpoint abandon para cerrar el quiz
+      const response = await axios.post('/quiz/abandon', {
+        quizId: currentQuizId
+      });
+      
+      console.log('Respuesta del servidor:', response.data);
+      console.log('Esperando que la base de datos complete la transacción...');
+      
+      // IMPORTANTE: Esperar para asegurar que la BD commitee la transacción
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // VERIFICAR que el quiz realmente fue eliminado
+      console.log('Verificando que el quiz fue eliminado...');
+      const verifyRes = await axios.get('/quiz/current');
+      console.log('Estado después de cerrar:', verifyRes.data);
+      
+      if (verifyRes.data.hasActiveQuiz) {
+        console.error('❌ ERROR: El quiz NO fue eliminado!');
+        alert('Error: No se pudo cerrar el cuestionario. Inténtalo desde el Dashboard.');
+        setClosing(false);
+        return;
+      }
+      
+      console.log('✅ Quiz eliminado exitosamente, navegando al dashboard...');
+      // Recargar la página completamente
+      window.location.href = '/dashboard';
+    } catch (error) {
+      console.error('Error al cerrar cuestionario:', error);
+      console.error('Detalles del error:', error.response?.data);
+      window.location.href = '/dashboard';
+    }
   };
 
   if (loading) {
@@ -100,6 +164,18 @@ const Results = () => {
               <span className="score-label">Puntuación</span>
             </div>
           </div>
+        </div>
+        
+        {/* Botón Cerrar Resultado en Hero */}
+        <div className="hero-actions">
+          <button
+            className="btn btn-primary btn-small"
+            onClick={handleClose}
+            disabled={closing}
+            title="Finalizar revisión y volver al inicio"
+          >
+            <FaHome /> {closing ? 'Cerrando...' : 'Finalizar Revisión'}
+          </button>
         </div>
       </div>
 
@@ -262,14 +338,14 @@ const Results = () => {
           className="btn btn-primary"
           onClick={() => navigate('/dashboard')}
         >
-          <FaHome /> Volver al Inicio
+          <FaHome /> <span>Volver al Inicio</span>
         </button>
         {quiz.mode !== 'practice' && (
           <button
             className="btn btn-success"
             onClick={() => navigate('/quiz', { state: { mode: quiz.mode } })}
           >
-            Intentar de Nuevo
+            <FaCheckCircle /> <span>Intentar de Nuevo</span>
           </button>
         )}
         {quiz.mode === 'practice' && (
@@ -282,7 +358,7 @@ const Results = () => {
               }, 100);
             }}
           >
-            Nueva Práctica
+            <FaCheckCircle /> <span>Nueva Práctica</span>
           </button>
         )}
       </div>

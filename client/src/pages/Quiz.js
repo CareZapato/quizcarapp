@@ -295,11 +295,16 @@ const Quiz = () => {
     
     try {
       const timeTaken = quiz.timeLimit - timeLeft;
+      console.log('=== LLAMANDO A /quiz/complete ===');
+      console.log('QuizId:', quiz.id);
+      console.log('TimeTaken:', timeTaken);
+      
       await axios.post('/quiz/complete', {
         quizId: quiz.id,
         timeTaken
       });
       
+      console.log('Quiz completado exitosamente, navegando a resultados...');
       navigate(`/results/${quiz.id}`);
     } catch (error) {
       console.error('Error al completar cuestionario:', error);
@@ -321,11 +326,16 @@ const Quiz = () => {
       
       try {
         const timeTaken = quiz.timeLimit - timeLeft;
+        console.log('=== LLAMANDO A /quiz/complete (MODO PRÁCTICA) ===');
+        console.log('QuizId:', quiz.id);
+        console.log('TimeTaken:', timeTaken);
+        
         await axios.post('/quiz/complete', {
           quizId: quiz.id,
           timeTaken
         });
         
+        console.log('Práctica completada exitosamente, navegando a resultados...');
         navigate(`/results/${quiz.id}`);
       } catch (error) {
         console.error('Error al completar práctica:', error);
@@ -343,15 +353,49 @@ const Quiz = () => {
     setAbandoning(true);
     
     try {
-      await axios.post('/quiz/abandon', {
-        quizId: quiz.id
+      // Obtener el quiz actual desde el servidor (igual que Dashboard)
+      const currentQuizRes = await axios.get('/quiz/current');
+      
+      if (!currentQuizRes.data.hasActiveQuiz) {
+        console.log('No hay quiz activo, navegando al dashboard...');
+        window.location.href = '/dashboard';
+        return;
+      }
+      
+      const currentQuizId = currentQuizRes.data.quiz.id;
+      console.log('Quiz activo en servidor:', currentQuizId);
+      console.log('Quiz en estado local:', quiz.id);
+      console.log('Enviando petición de abandono...');
+      
+      const response = await axios.post('/quiz/abandon', {
+        quizId: currentQuizId
       });
       
-      // Forzar recarga completa para asegurar que el dashboard se actualice
+      console.log('Respuesta del servidor:', response.data);
+      console.log('Esperando que la base de datos complete la transacción...');
+      
+      // IMPORTANTE: Esperar para asegurar que la BD commitee la transacción
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // VERIFICAR que el quiz realmente fue eliminado
+      console.log('Verificando que el quiz fue eliminado...');
+      const verifyRes = await axios.get('/quiz/current');
+      console.log('Estado después de abandonar:', verifyRes.data);
+      
+      if (verifyRes.data.hasActiveQuiz) {
+        console.error('❌ ERROR: El quiz NO fue eliminado!');
+        alert('Error: No se pudo abandonar el cuestionario. Inténtalo desde el Dashboard.');
+        setAbandoning(false);
+        return;
+      }
+      
+      console.log('✅ Quiz eliminado exitosamente, navegando al dashboard...');
+      // Recargar la página completamente para limpiar todo el estado
       window.location.href = '/dashboard';
     } catch (error) {
       console.error('Error al abandonar cuestionario:', error);
-      alert('Error al abandonar el cuestionario');
+      console.error('Detalles del error:', error.response?.data);
+      alert('Error al abandonar el cuestionario: ' + (error.response?.data?.error || error.message));
       setAbandoning(false);
     }
   };

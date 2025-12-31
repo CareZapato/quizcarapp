@@ -22,6 +22,11 @@ import Admin from './pages/Admin';
 const API_URL = process.env.REACT_APP_API_URL || '/api';
 axios.defaults.baseURL = API_URL;
 
+// Configurar axios para NO cachear peticiones
+axios.defaults.headers.common['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+axios.defaults.headers.common['Pragma'] = 'no-cache';
+axios.defaults.headers.common['Expires'] = '0';
+
 // Log para debugging
 console.log('API URL configurada:', API_URL);
 
