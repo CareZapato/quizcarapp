@@ -187,8 +187,14 @@ const Results = () => {
                   )}
 
                   <div className="answer-options">
-                    {['A', 'B', 'C'].map(option => {
+                    {['A', 'B', 'C', 'D', 'E'].map(option => {
                       const optionKey = `option_${option.toLowerCase()}`;
+                      const optionText = answer[optionKey];
+                      
+                      // No mostrar la opción si no tiene texto
+                      if (!optionText || optionText.trim() === '') {
+                        return null;
+                      }
                       
                       // Normalizar respuestas para comparación
                       const correctAnswers = typeof answer.correct_answer === 'string'
@@ -212,7 +218,7 @@ const Results = () => {
                       return (
                         <div key={option} className={className}>
                           <span className="option-letter">{option}</span>
-                          <span className="option-text">{answer[optionKey]}</span>
+                          <span className="option-text">{optionText}</span>
                           {isCorrectAnswer && <span className="badge">Correcta</span>}
                           {isUserAnswer && !isCorrect && <span className="badge wrong">Tu respuesta</span>}
                         </div>

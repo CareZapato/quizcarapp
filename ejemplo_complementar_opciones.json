@@ -1,0 +1,19 @@
+{
+  "questions": [
+    {
+      "question_number": 1,
+      "option_d": "Cuarta alternativa de la pregunta 1",
+      "option_e": "Quinta alternativa de la pregunta 1"
+    },
+    {
+      "question_number": 2,
+      "option_d": "Cuarta alternativa de la pregunta 2"
+    },
+    {
+      "question_number": 3,
+      "option_d": "Solo opción D para pregunta 3",
+      "option_e": "Solo opción E para pregunta 3",
+      "correct_answer": "A,D"
+    }
+  ]
+}

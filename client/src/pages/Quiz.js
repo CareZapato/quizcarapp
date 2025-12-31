@@ -58,16 +58,19 @@ const Quiz = () => {
           return;
         }
         
-        // Normalizar las preguntas: asegurarse de que tengan el campo 'id'
+        // Normalizar las preguntas: asegurarse de que tengan el campo 'id' y todas las opciones
         const normalizedQuestions = existingQuestions.map(q => ({
           id: q.question_id || q.id,
           question_text: q.question_text,
           option_a: q.option_a,
           option_b: q.option_b,
           option_c: q.option_c,
+          option_d: q.option_d || null,
+          option_e: q.option_e || null,
           image_url: q.image_url,
           category_id: q.category_id,
-          user_answer: q.user_answer
+          user_answer: q.user_answer,
+          has_multiple_answers: q.has_multiple_answers || false
         }));
         
         console.log('Preguntas normalizadas:', normalizedQuestions.length);
@@ -127,36 +130,64 @@ const Quiz = () => {
 
   const handleAnswer = async (questionId, answer) => {
     try {
-      // Determinar si es respuesta múltiple
+      const question = questions.find(q => q.id === questionId);
       const currentAnswer = answers[questionId];
       let newAnswer;
       
-      if (Array.isArray(currentAnswer)) {
-        // Ya es multi-respuesta
-        if (currentAnswer.includes(answer)) {
-          // Remover respuesta
-          newAnswer = currentAnswer.filter(a => a !== answer);
-          if (newAnswer.length === 0) {
-            // No permitir deseleccionar todas
-            return;
+      // Si la pregunta tiene múltiples respuestas correctas, siempre usar modo array
+      if (question?.has_multiple_answers) {
+        if (Array.isArray(currentAnswer)) {
+          // Ya es array
+          if (currentAnswer.includes(answer)) {
+            // Remover respuesta
+            newAnswer = currentAnswer.filter(a => a !== answer);
+            if (newAnswer.length === 0) {
+              // Permitir deseleccionar todas (deja la pregunta sin responder)
+              newAnswer = null;
+            }
+          } else {
+            // Agregar respuesta
+            newAnswer = [...currentAnswer, answer].sort();
+          }
+        } else if (currentAnswer) {
+          // Convertir a array
+          if (currentAnswer === answer) {
+            // Deseleccionar
+            newAnswer = null;
+          } else {
+            newAnswer = [currentAnswer, answer].sort();
           }
         } else {
-          // Agregar respuesta
-          newAnswer = [...currentAnswer, answer].sort();
-        }
-      } else if (currentAnswer) {
-        // Convertir a multi-respuesta si se hace click en otra opción
-        if (currentAnswer !== answer) {
-          newAnswer = [currentAnswer, answer].sort();
-        } else {
-          // Click en la misma opción, no hacer nada
-          return;
+          // Primera selección en modo múltiple
+          newAnswer = [answer];
         }
       } else {
-        // Primera selección
-        newAnswer = answer;
+        // Modo respuesta única
+        if (currentAnswer === answer) {
+          // Click en la misma opción: deseleccionar
+          newAnswer = null;
+        } else {
+          // Seleccionar nueva opción
+          newAnswer = answer;
+        }
       }
-
+      
+      // Si newAnswer es null, eliminar la respuesta
+      if (newAnswer === null) {
+        await axios.post('/quiz/answer', {
+          quizId: quiz.id,
+          questionId,
+          userAnswer: null
+        });
+        
+        setAnswers(prev => {
+          const newAnswers = { ...prev };
+          delete newAnswers[questionId];
+          return newAnswers;
+        });
+        return;
+      }
+      
       await axios.post('/quiz/answer', {
         quizId: quiz.id,
         questionId,
@@ -329,6 +360,12 @@ const Quiz = () => {
           
           <h2 className="question-text">{currentQuestion.question_text}</h2>
           
+          {currentQuestion.has_multiple_answers && (
+            <div className="multi-answer-indicator">
+              ✓ Esta pregunta tiene múltiples respuestas correctas. Puedes seleccionar más de una opción.
+            </div>
+          )}
+          
           {currentQuestion.image_url && (
             <div className="question-image">
               <img src={currentQuestion.image_url} alt="Imagen de la pregunta" />
@@ -336,8 +373,15 @@ const Quiz = () => {
           )}
           
           <div className="options">
-            {['A', 'B', 'C'].map(option => {
+            {['A', 'B', 'C', 'D', 'E'].map(option => {
               const optionKey = `option_${option.toLowerCase()}`;
+              const optionText = currentQuestion[optionKey];
+              
+              // No mostrar la opción si no tiene texto
+              if (!optionText || optionText.trim() === '') {
+                return null;
+              }
+              
               const currentAnswer = answers[currentQuestion.id];
               const isSelected = Array.isArray(currentAnswer) 
                 ? currentAnswer.includes(option)
@@ -351,7 +395,7 @@ const Quiz = () => {
                   onClick={() => handleAnswer(currentQuestion.id, option)}
                 >
                   <span className="option-letter">{option}</span>
-                  <span className="option-text">{currentQuestion[optionKey]}</span>
+                  <span className="option-text">{optionText}</span>
                   {isSelected && <FaCheckCircle className="check-icon" />}
                 </button>
               );
@@ -360,10 +404,10 @@ const Quiz = () => {
           
           {(() => {
             const currentAnswer = answers[currentQuestion.id];
-            const isMultiAnswer = Array.isArray(currentAnswer) && currentAnswer.length > 1;
-            return isMultiAnswer && (
-              <div className="multi-answer-info">
-                ℹ️ Has seleccionado {currentAnswer.length} respuestas. Puedes agregar o quitar opciones haciendo click.
+            const isMultiAnswer = Array.isArray(currentAnswer);
+            return isMultiAnswer && currentAnswer.length > 0 && (
+              <div className="multi-answer-selected-info">
+                📌 Respuestas seleccionadas: {currentAnswer.join(', ')} ({currentAnswer.length} {currentAnswer.length === 1 ? 'opción' : 'opciones'})
               </div>
             );
           })()}

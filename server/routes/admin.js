@@ -106,23 +106,43 @@ router.post('/questions', authMiddleware, adminMiddleware, async (req, res) => {
       option_a,
       option_b,
       option_c,
+      option_d,
+      option_e,
       correct_answer,
       explanation,
       image_url,
       difficulty
     } = req.body;
 
-    // Validación básica
-    if (!category_id || !question_text || !option_a || !option_b || !option_c || !correct_answer) {
-      return res.status(400).json({ error: 'Faltan campos requeridos' });
+    // Validación básica (category_id ya no es obligatorio, usará 0 por defecto)
+    // Mínimo 2 opciones requeridas (A y B)
+    if (!question_text || !option_a || !option_b || !correct_answer) {
+      console.error('❌ Error en POST /questions: Faltan campos obligatorios');
+      console.error(`   - question_text: ${question_text ? '✓' : '✗'}`);
+      console.error(`   - option_a: ${option_a ? '✓' : '✗'}`);
+      console.error(`   - option_b: ${option_b ? '✓' : '✗'}`);
+      console.error(`   - correct_answer: ${correct_answer ? '✓' : '✗'}`);
+      return res.status(400).json({ 
+        error: 'Faltan campos requeridos (mínimo: question_text, option_a, option_b, correct_answer)',
+        missing: [
+          !question_text && 'question_text',
+          !option_a && 'option_a',
+          !option_b && 'option_b',
+          !correct_answer && 'correct_answer'
+        ].filter(Boolean)
+      });
     }
+
+    console.log(`✅ Creando nueva pregunta con opciones: A${option_b ? ', B' : ''}${option_c ? ', C' : ''}${option_d ? ', D' : ''}${option_e ? ', E' : ''}`);
 
     const result = await dbRun(
       `INSERT INTO questions 
-       (category_id, question_text, option_a, option_b, option_c, correct_answer, explanation, image_url, difficulty)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       (category_id, question_text, option_a, option_b, option_c, option_d, option_e, 
+        correct_answer, explanation, image_url, difficulty)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING id`,
-      [category_id, question_text, option_a, option_b, option_c, correct_answer.toUpperCase(), explanation, image_url, difficulty || 1]
+      [category_id || 0, question_text, option_a, option_b, option_c, option_d || null, 
+       option_e || null, correct_answer.toUpperCase(), explanation, image_url, difficulty || 1]
     );
 
     res.status(201).json({
@@ -145,6 +165,8 @@ router.put('/questions/:id', authMiddleware, adminMiddleware, async (req, res) =
       option_a,
       option_b,
       option_c,
+      option_d,
+      option_e,
       correct_answer,
       explanation,
       image_url,
@@ -160,9 +182,11 @@ router.put('/questions/:id', authMiddleware, adminMiddleware, async (req, res) =
     await dbRun(
       `UPDATE questions 
        SET category_id = $1, question_text = $2, option_a = $3, option_b = $4, option_c = $5, 
-           correct_answer = $6, explanation = $7, image_url = $8, difficulty = $9
-       WHERE id = $10`,
-      [category_id, question_text, option_a, option_b, option_c, correct_answer.toUpperCase(), explanation, image_url, difficulty, id]
+           option_d = $6, option_e = $7, correct_answer = $8, explanation = $9, image_url = $10, 
+           difficulty = $11
+       WHERE id = $12`,
+      [category_id, question_text, option_a, option_b, option_c, option_d || null, 
+       option_e || null, correct_answer.toUpperCase(), explanation, image_url, difficulty, id]
     );
 
     res.json({ message: 'Pregunta actualizada exitosamente' });
@@ -293,7 +317,7 @@ router.get('/categories', authMiddleware, adminMiddleware, async (req, res) => {
   }
 });
 
-// Importar preguntas desde JSON
+// Importar/Complementar preguntas desde JSON
 router.post('/import-questions', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { questions } = req.body;
@@ -302,81 +326,203 @@ router.post('/import-questions', authMiddleware, adminMiddleware, async (req, re
       return res.status(400).json({ error: 'Se esperaba un array de preguntas' });
     }
 
+    // Obtener todas las categorías válidas al inicio
+    const validCategories = await dbAll('SELECT id FROM categories');
+    const validCategoryIds = validCategories.map(c => c.id);
+    const maxCategoryId = Math.max(...validCategoryIds);
+
     let importedCount = 0;
+    let updatedCount = 0;
     let skippedCount = 0;
     const errors = [];
+    const warnings = [];
 
     for (const q of questions) {
       try {
-        // Validar campos requeridos
-        if (!q.question_number || !q.question_text || !q.option_a || !q.option_b || !q.option_c || !q.correct_answer) {
-          errors.push({ question_number: q.question_number, error: 'Faltan campos requeridos' });
+        // Validar que al menos tenga question_number
+        if (!q.question_number) {
+          errors.push({ question_number: 'N/A', error: 'Falta el número de pregunta' });
           skippedCount++;
           continue;
         }
 
+        // Validar y corregir category_id si es necesario
+        let categoryId = q.category_id !== undefined ? q.category_id : 0;
+        if (categoryId && !validCategoryIds.includes(categoryId)) {
+          warnings.push({ 
+            question_number: q.question_number, 
+            warning: `category_id ${categoryId} no existe. Se usará categoría 0 (Indefinido). Categorías válidas: ${validCategoryIds.join(', ')}` 
+          });
+          categoryId = 0; // Usar categoría 0 "Indefinido" por defecto
+        }
+
         // Verificar si ya existe una pregunta con ese número
         const existing = await dbGet(
-          'SELECT id FROM questions WHERE question_number = $1',
+          'SELECT * FROM questions WHERE question_number = $1',
           [q.question_number]
         );
 
         if (existing) {
-          // Actualizar pregunta existente
-          await dbRun(
-            `UPDATE questions 
-             SET question_text = $1, option_a = $2, option_b = $3, option_c = $4, 
-                 correct_answer = $5, explanation = $6, category_id = $7, 
-                 difficulty = $8, needs_image = $9
-             WHERE question_number = $10`,
-            [
-              q.question_text,
-              q.option_a,
-              q.option_b,
-              q.option_c,
-              q.correct_answer,
-              q.explanation || null,
-              q.category_id || 1,
-              q.difficulty || 1,
-              q.needs_image || false,
-              q.question_number
-            ]
-          );
+          // Modo COMPLEMENTAR: actualizar solo campos proporcionados (no nulos/vacíos)
+          const updates = [];
+          const params = [];
+          let paramIndex = 1;
+
+          // Construir UPDATE dinámico solo con campos proporcionados
+          if (q.question_text !== undefined && q.question_text !== '') {
+            updates.push(`question_text = $${paramIndex++}`);
+            params.push(q.question_text);
+          }
+          if (q.option_a !== undefined && q.option_a !== '') {
+            updates.push(`option_a = $${paramIndex++}`);
+            params.push(q.option_a);
+          }
+          if (q.option_b !== undefined && q.option_b !== '') {
+            updates.push(`option_b = $${paramIndex++}`);
+            params.push(q.option_b);
+          }
+          if (q.option_c !== undefined && q.option_c !== '') {
+            updates.push(`option_c = $${paramIndex++}`);
+            params.push(q.option_c);
+          }
+          if (q.option_d !== undefined && q.option_d !== '') {
+            updates.push(`option_d = $${paramIndex++}`);
+            params.push(q.option_d);
+          }
+          if (q.option_e !== undefined && q.option_e !== '') {
+            updates.push(`option_e = $${paramIndex++}`);
+            params.push(q.option_e);
+          }
+          if (q.correct_answer !== undefined && q.correct_answer !== '') {
+            updates.push(`correct_answer = $${paramIndex++}`);
+            params.push(q.correct_answer);
+          }
+          if (q.explanation !== undefined) {
+            updates.push(`explanation = $${paramIndex++}`);
+            params.push(q.explanation || null);
+          }
+          if (q.category_id !== undefined) {
+            updates.push(`category_id = $${paramIndex++}`);
+            params.push(categoryId); // Usar categoryId validado
+          }
+          if (q.difficulty !== undefined) {
+            updates.push(`difficulty = $${paramIndex++}`);
+            params.push(q.difficulty);
+          }
+          if (q.needs_image !== undefined) {
+            updates.push(`needs_image = $${paramIndex++}`);
+            params.push(q.needs_image);
+          }
+          if (q.image_url !== undefined) {
+            updates.push(`image_url = $${paramIndex++}`);
+            params.push(q.image_url || null);
+          }
+
+          if (updates.length > 0) {
+            params.push(q.question_number);
+            const query = `UPDATE questions SET ${updates.join(', ')} WHERE question_number = $${paramIndex}`;
+            await dbRun(query, params);
+            updatedCount++;
+          } else {
+            skippedCount++;
+          }
         } else {
-          // Insertar nueva pregunta
+          // Modo INSERTAR: crear nueva pregunta (requiere campos mínimos - al menos 2 opciones)
+          if (!q.question_text || !q.option_a || !q.option_b || !q.correct_answer) {
+            console.error(`❌ [Pregunta ${q.question_number}] Error de validación: Faltan campos obligatorios`);
+            console.error(`   - question_text: ${q.question_text ? '✓' : '✗ FALTA'}`);
+            console.error(`   - option_a: ${q.option_a ? '✓' : '✗ FALTA'}`);
+            console.error(`   - option_b: ${q.option_b ? '✓' : '✗ FALTA'}`);
+            console.error(`   - correct_answer: ${q.correct_answer ? '✓' : '✗ FALTA'}`);
+            errors.push({ 
+              question_number: q.question_number, 
+              error: 'Nueva pregunta requiere mínimo: question_text, option_a, option_b, correct_answer',
+              missing_fields: [
+                !q.question_text && 'question_text',
+                !q.option_a && 'option_a', 
+                !q.option_b && 'option_b',
+                !q.correct_answer && 'correct_answer'
+              ].filter(Boolean)
+            });
+            skippedCount++;
+            continue;
+          }
+
+          console.log(`✅ [Pregunta ${q.question_number}] Insertando nueva pregunta:`);
+          console.log(`   - Opciones: A${q.option_b ? ', B' : ''}${q.option_c ? ', C' : ''}${q.option_d ? ', D' : ''}${q.option_e ? ', E' : ''}`);
+          console.log(`   - Respuesta correcta: ${q.correct_answer}`);
+          console.log(`   - Categoría: ${categoryId}`);
+
           await dbRun(
             `INSERT INTO questions (question_number, question_text, option_a, option_b, option_c, 
-                                   correct_answer, explanation, category_id, difficulty, needs_image)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                                   option_d, option_e, correct_answer, explanation, category_id, 
+                                   difficulty, needs_image, image_url)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
             [
               q.question_number,
               q.question_text,
               q.option_a,
               q.option_b,
               q.option_c,
+              q.option_d || null,
+              q.option_e || null,
               q.correct_answer,
               q.explanation || null,
-              q.category_id || 1,
+              categoryId, // Usar categoryId validado
               q.difficulty || 1,
-              q.needs_image || false
+              q.needs_image || false,
+              q.image_url || null
             ]
           );
+          importedCount++;
         }
-
-        importedCount++;
       } catch (error) {
-        console.error(`Error al procesar pregunta ${q.question_number}:`, error);
-        errors.push({ question_number: q.question_number, error: error.message });
+        console.error(`\n❌ ============ ERROR PROCESANDO PREGUNTA ${q.question_number} ============`);
+        console.error(`Mensaje: ${error.message}`);
+        console.error(`Código: ${error.code || 'N/A'}`);
+        console.error(`Detalle: ${error.detail || 'Sin detalles'}`);
+        console.error(`Constraint: ${error.constraint || 'N/A'}`);
+        console.error(`Datos de la pregunta:`, JSON.stringify({
+          question_number: q.question_number,
+          category_id: categoryId,
+          has_option_a: !!q.option_a,
+          has_option_b: !!q.option_b,
+          has_option_c: !!q.option_c,
+          has_option_d: !!q.option_d,
+          has_option_e: !!q.option_e,
+          correct_answer: q.correct_answer
+        }, null, 2));
+        console.error(`Stack: ${error.stack}`);
+        console.error(`========================================================\n`);
+        errors.push({ 
+          question_number: q.question_number, 
+          error: error.message,
+          code: error.code,
+          detail: error.detail || 'Sin detalles adicionales',
+          constraint: error.constraint
+        });
         skippedCount++;
       }
     }
 
+    console.log(`\n📊 ============ RESUMEN DE IMPORTACIÓN ============`);
+    console.log(`✅ Nuevas insertadas: ${importedCount}`);
+    console.log(`🔄 Actualizadas: ${updatedCount}`);
+    console.log(`⏭️  Omitidas: ${skippedCount}`);
+    console.log(`⚠️  Warnings: ${warnings.length}`);
+    console.log(`❌ Errores: ${errors.length}`);
+    console.log(`================================================\n`);
+
     res.json({
       success: true,
       importedCount,
+      updatedCount,
       skippedCount,
+      totalProcessed: importedCount + updatedCount + skippedCount,
+      validCategories: `1-${maxCategoryId}`,
+      warnings: warnings.length > 0 ? warnings : undefined,
       errors: errors.length > 0 ? errors : undefined,
-      message: `${importedCount} preguntas importadas exitosamente. ${skippedCount} omitidas.`
+      message: `✅ ${importedCount} preguntas nuevas insertadas, ${updatedCount} preguntas actualizadas/complementadas, ${skippedCount} omitidas.${warnings.length > 0 ? ` ⚠️ ${warnings.length} advertencias de categorías corregidas.` : ''}`
     });
   } catch (error) {
     console.error('Error al importar preguntas:', error);
@@ -428,6 +574,8 @@ router.get('/export-questions', authMiddleware, adminMiddleware, async (req, res
         option_a,
         option_b,
         option_c,
+        option_d,
+        option_e,
         correct_answer,
         explanation,
         category_id,
@@ -465,9 +613,15 @@ router.post('/import-full', authMiddleware, adminMiddleware, async (req, res) =>
       return res.status(400).json({ error: 'Se esperaba un array de preguntas' });
     }
 
+    // Obtener categorías válidas
+    const validCategories = await dbAll('SELECT id FROM categories');
+    const validCategoryIds = validCategories.map(c => c.id);
+    const maxCategoryId = Math.max(...validCategoryIds);
+
     let importedCount = 0;
     let categoriesImported = 0;
     const errors = [];
+    const warnings = [];
 
     // Si se solicita reemplazar todo, eliminar preguntas existentes
     if (replaceAll === true) {
@@ -492,30 +646,67 @@ router.post('/import-full', authMiddleware, adminMiddleware, async (req, res) =>
           console.error(`Error al importar categoría ${cat.id}:`, error);
         }
       }
+      
+      // Actualizar lista de categorías válidas después de importar nuevas
+      if (categoriesImported > 0) {
+        const updatedCategories = await dbAll('SELECT id FROM categories');
+        validCategoryIds.length = 0;
+        validCategoryIds.push(...updatedCategories.map(c => c.id));
+      }
     }
 
     // Importar preguntas
     for (const q of questions) {
       try {
-        // Validar campos requeridos
-        if (!q.question_text || !q.option_a || !q.option_b || !q.option_c || !q.correct_answer) {
-          errors.push({ question_number: q.question_number, error: 'Faltan campos requeridos' });
+        // Validar campos requeridos (al menos 2 opciones)
+        if (!q.question_text || !q.option_a || !q.option_b || !q.correct_answer) {
+          console.error(`❌ [Pregunta ${q.question_number}] Error de validación en import-full`);
+          console.error(`   - question_text: ${q.question_text ? '✓' : '✗ FALTA'}`);
+          console.error(`   - option_a: ${q.option_a ? '✓' : '✗ FALTA'}`);
+          console.error(`   - option_b: ${q.option_b ? '✓' : '✗ FALTA'}`);
+          console.error(`   - correct_answer: ${q.correct_answer ? '✓' : '✗ FALTA'}`);
+          errors.push({ 
+            question_number: q.question_number, 
+            error: 'Faltan campos requeridos (mínimo: question_text, option_a, option_b, correct_answer)',
+            missing_fields: [
+              !q.question_text && 'question_text',
+              !q.option_a && 'option_a',
+              !q.option_b && 'option_b', 
+              !q.correct_answer && 'correct_answer'
+            ].filter(Boolean)
+          });
           continue;
+        }
+
+        console.log(`✅ [Pregunta ${q.question_number}] Importando (import-full):`);
+        console.log(`   - Opciones: A${q.option_b ? ', B' : ''}${q.option_c ? ', C' : ''}${q.option_d ? ', D' : ''}${q.option_e ? ', E' : ''}`);
+
+        // Validar y corregir category_id
+        let categoryId = q.category_id !== undefined ? q.category_id : 0;
+        if (categoryId && !validCategoryIds.includes(categoryId)) {
+          warnings.push({ 
+            question_number: q.question_number, 
+            warning: `category_id ${categoryId} no existe. Se usará categoría 0 (Indefinido). Categorías válidas: ${validCategoryIds.join(', ')}` 
+          });
+          categoryId = 0;
         }
 
         await dbRun(
           `INSERT INTO questions (question_number, question_text, option_a, option_b, option_c, 
-                                 correct_answer, explanation, category_id, difficulty, needs_image, image_url)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                                 option_d, option_e, correct_answer, explanation, category_id, 
+                                 difficulty, needs_image, image_url)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
           [
             q.question_number || null,
             q.question_text,
             q.option_a,
             q.option_b,
             q.option_c,
+            q.option_d || null,
+            q.option_e || null,
             q.correct_answer,
             q.explanation || null,
-            q.category_id || 1,
+            categoryId, // Usar categoryId validado
             q.difficulty || 1,
             q.needs_image || false,
             q.image_url || null
@@ -523,18 +714,39 @@ router.post('/import-full', authMiddleware, adminMiddleware, async (req, res) =>
         );
 
         importedCount++;
+        console.log(`   ✓ Pregunta ${q.question_number} importada correctamente`);
       } catch (error) {
-        console.error(`Error al procesar pregunta ${q.question_number}:`, error);
-        errors.push({ question_number: q.question_number, error: error.message });
+        console.error(`\n❌ ============ ERROR EN IMPORT-FULL PREGUNTA ${q.question_number} ============`);
+        console.error(`Mensaje: ${error.message}`);
+        console.error(`Código: ${error.code || 'N/A'}`);
+        console.error(`Detalle: ${error.detail || 'Sin detalles'}`);
+        console.error(`Constraint: ${error.constraint || 'N/A'}`);
+        console.error(`=================================================================\n`);
+        errors.push({ 
+          question_number: q.question_number, 
+          error: error.message,
+          code: error.code,
+          detail: error.detail || 'Sin detalles adicionales',
+          constraint: error.constraint
+        });
       }
     }
+
+    console.log(`\n📊 ============ RESUMEN IMPORT-FULL ============`);
+    console.log(`✅ Importadas: ${importedCount}`);
+    console.log(`📁 Categorías: ${categoriesImported}`);
+    console.log(`⚠️  Warnings: ${warnings.length}`);
+    console.log(`❌ Errores: ${errors.length}`);
+    console.log(`===============================================\n`);
 
     res.json({
       success: true,
       importedCount,
       categoriesImported,
+      validCategories: validCategoryIds.join(', '),
+      warnings: warnings.length > 0 ? warnings : undefined,
       errors: errors.length > 0 ? errors : undefined,
-      message: `Importación completa: ${importedCount} preguntas${categoriesImported > 0 ? `, ${categoriesImported} categorías` : ''}. ${errors.length > 0 ? `${errors.length} errores.` : ''}`
+      message: `✅ Importación completa: ${importedCount} preguntas${categoriesImported > 0 ? `, ${categoriesImported} categorías` : ''}. ${errors.length > 0 ? `❌ ${errors.length} errores.` : ''}${warnings.length > 0 ? ` ⚠️ ${warnings.length} advertencias de categorías.` : ''}`
     });
   } catch (error) {
     console.error('Error en importación completa:', error);

@@ -2,11 +2,13 @@
 
 export const SEED_DATA = {
   categories: [
-    { name: 'Señales de Tráfico', description: 'Señales de tráfico y señalización' },
-    { name: 'Normas de Circulación', description: 'Reglas y normas de circulación' },
-    { name: 'Seguridad Vial', description: 'Seguridad y prevención de accidentes' },
-    { name: 'Mecánica Básica', description: 'Conocimientos básicos de mecánica' },
-    { name: 'Primeros Auxilios', description: 'Primeros auxilios en accidentes' }
+    { id: 0, name: 'Indefinido', description: 'Categoría por defecto para preguntas sin categoría específica' },
+    { id: 1, name: 'Señales de Tráfico', description: 'Señales de tráfico y señalización' },
+    { id: 2, name: 'Normas de Circulación', description: 'Reglas y normas de circulación' },
+    { id: 3, name: 'Seguridad Vial', description: 'Seguridad y prevención de accidentes' },
+    { id: 4, name: 'Mecánica Básica', description: 'Conocimientos básicos de mecánica' },
+    { id: 5, name: 'Primeros Auxilios', description: 'Primeros auxilios en accidentes' },
+    { id: 6, name: 'Sistemas y Equipos del Vehículo', description: 'Conocimientos sobre sistemas y equipos de seguridad del vehículo' }
   ],
 
   // No hay preguntas por defecto - deben importarse desde JSON
@@ -57,6 +59,8 @@ export const TABLE_SCHEMAS = {
       option_a TEXT NOT NULL,
       option_b TEXT NOT NULL,
       option_c TEXT NOT NULL,
+      option_d TEXT,
+      option_e TEXT,
       correct_answer TEXT NOT NULL,
       explanation TEXT,
       image_url TEXT,

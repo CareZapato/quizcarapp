@@ -50,12 +50,21 @@ async function seedData() {
     if (categoriesEmpty) {
       console.log('📁 Insertando categorías...');
       for (const cat of SEED_DATA.categories) {
-        await dbRun(
-          'INSERT INTO categories (name, description) VALUES ($1, $2)',
-          [cat.name, cat.description]
-        );
+        if (cat.id !== undefined) {
+          // Insertar con ID específico
+          await dbRun(
+            'INSERT INTO categories (id, name, description) VALUES ($1, $2, $3)',
+            [cat.id, cat.name, cat.description]
+          );
+        } else {
+          // Insertar sin ID (autoincremental)
+          await dbRun(
+            'INSERT INTO categories (name, description) VALUES ($1, $2)',
+            [cat.name, cat.description]
+          );
+        }
       }
-      console.log('✅ Categorías insertadas');
+      console.log('✅ Categorías insertadas (incluyendo categoría 0: Indefinido)');
     }
 
     // Insertar preguntas
@@ -64,9 +73,11 @@ async function seedData() {
       console.log('❓ Insertando preguntas de ejemplo...');
       for (const q of SEED_DATA.questions) {
         await dbRun(
-          `INSERT INTO questions (category_id, question_text, option_a, option_b, option_c, correct_answer, explanation, difficulty, needs_image)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [q.category_id, q.question, q.a, q.b, q.c, q.correct, q.explanation, q.difficulty, false]
+          `INSERT INTO questions (category_id, question_text, option_a, option_b, option_c, 
+                                  option_d, option_e, correct_answer, explanation, difficulty, needs_image)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          [q.category_id, q.question, q.a, q.b, q.c, q.d || null, q.e || null, 
+           q.correct, q.explanation, q.difficulty, false]
         );
       }
       console.log('✅ Preguntas insertadas');
@@ -185,8 +196,33 @@ async function verifyColumnTypes() {
       await query('ALTER TABLE user_answers ALTER COLUMN user_answer TYPE TEXT');
       console.log('✅ user_answers.user_answer actualizado');
     }
+
+    // Verificar y agregar columnas option_d y option_e si no existen
+    const checkD = await query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'questions' AND column_name = 'option_d'
+    `);
+
+    if (checkD.rows.length === 0) {
+      console.log('⚠️  Agregando columna option_d...');
+      await query('ALTER TABLE questions ADD COLUMN option_d TEXT');
+      console.log('✅ Columna option_d agregada');
+    }
+
+    const checkE = await query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'questions' AND column_name = 'option_e'
+    `);
+
+    if (checkE.rows.length === 0) {
+      console.log('⚠️  Agregando columna option_e...');
+      await query('ALTER TABLE questions ADD COLUMN option_e TEXT');
+      console.log('✅ Columna option_e agregada');
+    }
     
-    console.log('✅ Tipos de columnas verificados');
+    console.log('✅ Tipos de columnas y estructura verificados');
   } catch (error) {
     console.log('ℹ️  Verificación de tipos de columnas omitida:', error.message);
   }

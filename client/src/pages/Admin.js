@@ -34,6 +34,7 @@ const Admin = () => {
     option_b: '',
     option_c: '',
     option_d: '',
+    option_e: '',
     correct_answer: ['A'], // Array para múltiples respuestas
     explanation: '',
     image_url: '',
@@ -274,6 +275,7 @@ const Admin = () => {
       option_b: question.option_b,
       option_c: question.option_c,
       option_d: question.option_d || '',
+      option_e: question.option_e || '',
       correct_answer: correctAnswerArray,
       explanation: question.explanation || '',
       image_url: question.image_url || '',
@@ -307,6 +309,7 @@ const Admin = () => {
       option_b: '',
       option_c: '',
       option_d: '',
+      option_e: '',
       correct_answer: ['A'],
       explanation: '',
       image_url: '',
@@ -714,121 +717,200 @@ const Admin = () => {
       )}
 
       {/* Mapa de Preguntas */}
-      {viewMode === 'map' && questionsMap && (
-        <div className="questions-map-container">
-          <h2>🗺️ Mapa de Preguntas e Imágenes</h2>
-          <div className="map-stats">
-            <div className="map-stat complete">
-              <span className="count">{questionsMap.stats.withImages}</span>
-              <span className="label">Con imagen</span>
-            </div>
-            <div className="map-stat missing">
-              <span className="count">{questionsMap.stats.needingImages}</span>
-              <span className="label">Falta imagen</span>
-            </div>
-            <div className="map-stat not-required">
-              <span className="count">{questionsMap.stats.notRequired}</span>
-              <span className="label">No requiere</span>
-            </div>
-            <div className="map-stat total">
-              <span className="count">{questionsMap.stats.total}</span>
-              <span className="label">Total</span>
-            </div>
-          </div>
-          <div className="questions-grid">
-            {questionsMap.questions.map(q => {
-              const fullQuestion = questions.find(fq => fq.id === q.id);
-              const optionsCount = fullQuestion ? ['option_a', 'option_b', 'option_c', 'option_d'].filter(key => fullQuestion[key]).length : 0;
-              const correctAnswers = fullQuestion ? (Array.isArray(fullQuestion.correct_answer) ? fullQuestion.correct_answer : fullQuestion.correct_answer.split(',')).length : 0;
-              
-              return (
-                <div
-                  key={q.id}
-                  className={`question-grid-item status-${q.image_status}`}
-                >
-                  <div className="grid-item-header">
-                    <div className="grid-item-number">
-                      <span className="number-badge">#{q.question_number || q.id}</span>
-                    </div>
-                    <div className="grid-item-status">
-                      {q.image_status === 'complete' && <span className="status-badge complete">✓</span>}
-                      {q.image_status === 'missing' && <span className="status-badge missing">!</span>}
-                      {q.image_status === 'not_required' && <span className="status-badge not-required">○</span>}
-                    </div>
-                  </div>
-                  
-                  <div className="grid-item-preview">
-                    <p className="question-preview-text">{q.question_text.substring(0, 60)}{q.question_text.length > 60 ? '...' : ''}</p>
-                  </div>
-                  
-                  <div className="grid-item-info">
-                    <div className="info-badge">
-                      <span className="info-icon">🔤</span>
-                      <span className="info-text">{optionsCount} opciones</span>
-                    </div>
-                    <div className="info-badge success">
-                      <span className="info-icon">✓</span>
-                      <span className="info-text">{correctAnswers} correcta{correctAnswers !== 1 ? 's' : ''}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="grid-item-actions">
-                  <button
-                    className="btn-icon btn-view"
-                    onClick={() => {
-                      const fullQuestion = questions.find(fq => fq.id === q.id);
-                      if (fullQuestion) {
-                        setPreviewModal({ show: true, question: fullQuestion });
-                      }
-                    }}
-                    title="Ver pregunta"
-                  >
-                    👁️
-                  </button>
-                  <button
-                    className="btn-icon btn-edit"
-                    onClick={() => {
-                      const fullQuestion = questions.find(fq => fq.id === q.id);
-                      if (fullQuestion) {
-                        handleEdit(fullQuestion);
-                        setViewMode('list');
-                        setShowForm(true);
-                      }
-                    }}
-                    title="Editar pregunta"
-                  >
-                    ✏️
-                  </button>
-                  {q.image_status === 'missing' && (
-                    <button
-                      className="btn-icon btn-upload"
-                      title="Subir imagen (Ctrl+V para pegar)"
-                      onClick={() => setQuickUploadModal({ show: true, questionId: q.id, questionNumber: q.question_number || q.id })}
-                    >
-                      📤
-                    </button>
-                  )}
-                </div>
+      {viewMode === 'map' && questionsMap && (() => {
+        // Crear array completo con todas las posiciones numéricas
+        const maxQuestionNumber = Math.max(...questionsMap.questions.map(q => q.question_number || 0), 0);
+        const allPositions = [];
+        
+        for (let i = 1; i <= maxQuestionNumber; i++) {
+          const existingQuestion = questionsMap.questions.find(q => q.question_number === i);
+          allPositions.push({
+            position: i,
+            question: existingQuestion || null
+          });
+        }
+        
+        return (
+          <div className="questions-map-container">
+            <h2>🗺️ Mapa de Preguntas e Imágenes</h2>
+            <div className="map-stats">
+              <div className="map-stat complete">
+                <span className="count">{questionsMap.stats.withImages}</span>
+                <span className="label">Con imagen</span>
               </div>
-              );
-            })}
+              <div className="map-stat missing">
+                <span className="count">{questionsMap.stats.needingImages}</span>
+                <span className="label">Falta imagen</span>
+              </div>
+              <div className="map-stat not-required">
+                <span className="count">{questionsMap.stats.notRequired}</span>
+                <span className="label">No requiere</span>
+              </div>
+              <div className="map-stat total">
+                <span className="count">{questionsMap.stats.total}</span>
+                <span className="label">Total</span>
+              </div>
+              <div className="map-stat empty">
+                <span className="count">{allPositions.filter(p => !p.question).length}</span>
+                <span className="label">Vacías</span>
+              </div>
+            </div>
+            <div className="questions-grid">
+              {allPositions.map(({ position, question: q }) => {
+                if (!q) {
+                  // Mostrar espacio vacío
+                  return (
+                    <div
+                      key={`empty-${position}`}
+                      className="question-grid-item status-empty"
+                    >
+                      <div className="grid-item-header">
+                        <div className="grid-item-number">
+                          <span className="number-badge empty">#{position}</span>
+                        </div>
+                        <div className="grid-item-status">
+                          <span className="status-badge empty">∅</span>
+                        </div>
+                      </div>
+                      <div className="grid-item-preview">
+                        <p className="question-preview-text empty-text">Pregunta no agregada</p>
+                      </div>
+                      <div className="grid-item-info">
+                        <div className="info-badge empty">
+                          <span className="info-icon">⚠️</span>
+                          <span className="info-text">Vacío</span>
+                        </div>
+                      </div>
+                      <div className="grid-item-actions">
+                        <button
+                          className="btn-icon btn-add"
+                          onClick={() => {
+                            setFormData({
+                              question_number: position,
+                              category_id: 1,
+                              question_text: '',
+                              option_a: '',
+                              option_b: '',
+                              option_c: '',
+                              option_d: '',
+                              option_e: '',
+                              correct_answer: ['A'],
+                              explanation: '',
+                              image_url: '',
+                              difficulty: 1,
+                              needs_image: false
+                            });
+                            setEditingQuestion(null);
+                            setViewMode('list');
+                            setShowForm(true);
+                          }}
+                          title="Crear pregunta en esta posición"
+                        >
+                          ➕
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+                
+                // Mostrar pregunta existente
+                const fullQuestion = questions.find(fq => fq.id === q.id);
+                const optionsCount = fullQuestion ? ['option_a', 'option_b', 'option_c', 'option_d', 'option_e'].filter(key => fullQuestion[key]).length : 0;
+                const correctAnswers = fullQuestion ? (Array.isArray(fullQuestion.correct_answer) ? fullQuestion.correct_answer : fullQuestion.correct_answer.split(',')).length : 0;
+                
+                return (
+                  <div
+                    key={q.id}
+                    className={`question-grid-item status-${q.image_status}`}
+                  >
+                    <div className="grid-item-header">
+                      <div className="grid-item-number">
+                        <span className="number-badge">#{q.question_number || q.id}</span>
+                      </div>
+                      <div className="grid-item-status">
+                        {q.image_status === 'complete' && <span className="status-badge complete">✓</span>}
+                        {q.image_status === 'missing' && <span className="status-badge missing">!</span>}
+                        {q.image_status === 'not_required' && <span className="status-badge not-required">○</span>}
+                      </div>
+                    </div>
+                    
+                    <div className="grid-item-preview">
+                      <p className="question-preview-text">{q.question_text.substring(0, 60)}{q.question_text.length > 60 ? '...' : ''}</p>
+                    </div>
+                    
+                    <div className="grid-item-info">
+                      <div className="info-badge">
+                        <span className="info-icon">🔤</span>
+                        <span className="info-text">{optionsCount} opciones</span>
+                      </div>
+                      <div className="info-badge success">
+                        <span className="info-icon">✓</span>
+                        <span className="info-text">{correctAnswers} correcta{correctAnswers !== 1 ? 's' : ''}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid-item-actions">
+                      <button
+                        className="btn-icon btn-view"
+                        onClick={() => {
+                          const fullQuestion = questions.find(fq => fq.id === q.id);
+                          if (fullQuestion) {
+                            setPreviewModal({ show: true, question: fullQuestion });
+                          }
+                        }}
+                        title="Ver pregunta"
+                      >
+                        👁️
+                      </button>
+                      <button
+                        className="btn-icon btn-edit"
+                        onClick={() => {
+                          const fullQuestion = questions.find(fq => fq.id === q.id);
+                          if (fullQuestion) {
+                            handleEdit(fullQuestion);
+                            setViewMode('list');
+                            setShowForm(true);
+                          }
+                        }}
+                        title="Editar pregunta"
+                      >
+                        ✏️
+                      </button>
+                      {q.image_status === 'missing' && (
+                        <button
+                          className="btn-icon btn-upload"
+                          title="Subir imagen (Ctrl+V para pegar)"
+                          onClick={() => setQuickUploadModal({ show: true, questionId: q.id, questionNumber: q.question_number || q.id })}
+                        >
+                          📤
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="map-legend">
+              <div className="legend-item">
+                <span className="legend-icon complete">✓</span>
+                <span>Con imagen</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-icon missing">!</span>
+                <span>Falta imagen (needs_image=true)</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-icon not-required">○</span>
+                <span>No requiere imagen</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-icon empty">∅</span>
+                <span>Pregunta vacía/faltante</span>
+              </div>
+            </div>
           </div>
-          <div className="map-legend">
-            <div className="legend-item">
-              <span className="legend-icon complete">✓</span>
-              <span>Con imagen</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-icon missing">!</span>
-              <span>Falta imagen (needs_image=true)</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-icon not-required">○</span>
-              <span>No requiere imagen</span>
-            </div>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Formulario */}
       {showForm && viewMode === 'list' && (
@@ -915,6 +997,14 @@ const Admin = () => {
                     />
                     <span className="checkbox-label-text">Opción D</span>
                   </label>
+                  <label className="checkbox-option">
+                    <input
+                      type="checkbox"
+                      checked={formData.correct_answer.includes('E')}
+                      onChange={() => handleCorrectAnswerChange('E')}
+                    />
+                    <span className="checkbox-label-text">Opción E</span>
+                  </label>
                 </div>
                 {formData.correct_answer.length > 1 && (
                   <div className="multi-answer-note">
@@ -985,6 +1075,18 @@ const Admin = () => {
                 onChange={handleInputChange}
                 className="form-control"
                 placeholder="Cuarta opción (opcional)"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Opción E <span className="optional-label">(opcional)</span></label>
+              <input
+                type="text"
+                name="option_e"
+                value={formData.option_e}
+                onChange={handleInputChange}
+                className="form-control"
+                placeholder="Quinta opción (opcional)"
               />
             </div>
 
@@ -1368,7 +1470,7 @@ const Admin = () => {
                     ? previewModal.question.correct_answer 
                     : previewModal.question.correct_answer.split(',');
                   
-                  return ['A', 'B', 'C', 'D'].map(option => {
+                  return ['A', 'B', 'C', 'D', 'E'].map(option => {
                     const optionKey = `option_${option.toLowerCase()}`;
                     const optionText = previewModal.question[optionKey];
                     const isCorrect = correctAnswers.includes(option);

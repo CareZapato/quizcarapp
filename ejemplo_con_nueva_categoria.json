@@ -1,0 +1,17 @@
+{
+  "questions": [
+    {
+      "question_number": 26,
+      "question_text": "¿Para qué sirven los seguros de niños de los vehículos?",
+      "option_a": "Aseguran las hebillas de los cinturones de seguridad.",
+      "option_b": "Impiden que las puertas puedan abrirse desde el interior.",
+      "option_c": "Impiden que las ventanas se abran manteniéndolas cerradas.",
+      "option_d": "Impiden que los asientos se reclinen.",
+      "correct_answer": "B",
+      "explanation": "Evitan que los niños abran las puertas desde el interior.",
+      "category_id": 6,
+      "difficulty": 1,
+      "needs_image": false
+    }
+  ]
+}

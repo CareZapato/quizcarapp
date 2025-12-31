@@ -107,15 +107,18 @@ router.post('/start', authMiddleware, async (req, res) => {
       );
     }
 
-    // Preparar preguntas sin mostrar la respuesta correcta
+    // Preparar preguntas sin mostrar la respuesta correcta (incluir todas las opciones A-E)
     const questionsForClient = questions.map(q => ({
       id: q.id,
       question_text: q.question_text,
       option_a: q.option_a,
       option_b: q.option_b,
       option_c: q.option_c,
+      option_d: q.option_d || null,
+      option_e: q.option_e || null,
       image_url: q.image_url,
-      category_id: q.category_id
+      category_id: q.category_id,
+      has_multiple_answers: q.correct_answer.includes(',') // Indicar si tiene múltiples respuestas
     }));
 
     res.json({
@@ -150,6 +153,21 @@ router.post('/answer', authMiddleware, async (req, res) => {
 
     if (quiz.completed) {
       return res.status(400).json({ error: 'El cuestionario ya fue completado' });
+    }
+
+    // Si userAnswer es null, solo limpiar la respuesta
+    if (userAnswer === null || userAnswer === undefined) {
+      await dbRun(
+        `UPDATE user_answers 
+         SET user_answer = NULL, is_correct = 0
+         WHERE quiz_id = $1 AND question_id = $2`,
+        [quizId, questionId]
+      );
+
+      return res.json({
+        message: 'Respuesta eliminada',
+        isCorrect: false
+      });
     }
 
     // Obtener la pregunta para verificar la respuesta
@@ -400,7 +418,7 @@ router.get('/current', authMiddleware, async (req, res) => {
       return res.json({ hasActiveQuiz: false });
     }
 
-    // Obtener todas las preguntas del cuestionario con sus respuestas
+    // Obtener todas las preguntas del cuestionario con sus respuestas (incluir opciones D y E)
     const questions = await dbAll(
       `SELECT 
         q.id as question_id,
@@ -408,6 +426,9 @@ router.get('/current', authMiddleware, async (req, res) => {
         q.option_a,
         q.option_b,
         q.option_c,
+        q.option_d,
+        q.option_e,
+        q.correct_answer,
         q.image_url,
         q.category_id,
         ua.user_answer,
@@ -418,6 +439,12 @@ router.get('/current', authMiddleware, async (req, res) => {
        ORDER BY ua.id`,
       [quiz.id]
     );
+    
+    // Agregar indicador de múltiples respuestas
+    const questionsWithMetadata = questions.map(q => ({
+      ...q,
+      has_multiple_answers: q.correct_answer ? q.correct_answer.includes(',') : false
+    }));
 
     res.json({
       hasActiveQuiz: true,
@@ -428,7 +455,7 @@ router.get('/current', authMiddleware, async (req, res) => {
         timeLimit: quiz.time_limit,
         startedAt: quiz.started_at
       },
-      questions: questions
+      questions: questionsWithMetadata
     });
   } catch (error) {
     console.error('Error al obtener cuestionario actual:', error);
