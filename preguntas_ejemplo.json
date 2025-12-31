@@ -1,0 +1,122 @@
+[
+  {
+    "question_number": 1,
+    "question_text": "¿Qué significa una señal triangular con borde rojo?",
+    "option_a": "Prohibición",
+    "option_b": "Peligro",
+    "option_c": "Obligación",
+    "correct_answer": "B",
+    "needs_image": true,
+    "category_id": 1,
+    "difficulty": 1,
+    "explanation": "Las señales triangulares con borde rojo indican peligro o advertencia."
+  },
+  {
+    "question_number": 2,
+    "question_text": "¿Qué indica una señal circular con fondo azul?",
+    "option_a": "Prohibición",
+    "option_b": "Peligro",
+    "option_c": "Obligación",
+    "correct_answer": "C",
+    "needs_image": true,
+    "category_id": 1,
+    "difficulty": 1,
+    "explanation": "Las señales circulares con fondo azul indican obligación."
+  },
+  {
+    "question_number": 3,
+    "question_text": "¿Cuál es la velocidad máxima en ciudad para turismos?",
+    "option_a": "40 km/h",
+    "option_b": "50 km/h",
+    "option_c": "60 km/h",
+    "correct_answer": "B",
+    "needs_image": false,
+    "category_id": 2,
+    "difficulty": 1,
+    "explanation": "La velocidad máxima en ciudad es de 50 km/h para turismos."
+  },
+  {
+    "question_number": 4,
+    "question_text": "¿A qué distancia debe colocarse el triángulo de emergencia?",
+    "option_a": "25 metros",
+    "option_b": "50 metros",
+    "option_c": "100 metros",
+    "correct_answer": "B",
+    "needs_image": false,
+    "category_id": 2,
+    "difficulty": 1,
+    "explanation": "El triángulo debe colocarse a 50 metros del vehículo."
+  },
+  {
+    "question_number": 5,
+    "question_text": "¿Cuál es la tasa máxima de alcohol permitida para conductores noveles?",
+    "option_a": "0.0 g/l",
+    "option_b": "0.15 g/l",
+    "option_c": "0.25 g/l",
+    "correct_answer": "B",
+    "needs_image": false,
+    "category_id": 3,
+    "difficulty": 2,
+    "explanation": "Para conductores noveles la tasa máxima es de 0.15 g/l en sangre."
+  },
+  {
+    "question_number": 6,
+    "question_text": "¿Qué debe hacer al ver un accidente?",
+    "option_a": "Pasar rápidamente",
+    "option_b": "Detenerse si puede ayudar",
+    "option_c": "Filmar con el móvil",
+    "correct_answer": "B",
+    "needs_image": false,
+    "category_id": 3,
+    "difficulty": 2,
+    "explanation": "Debe detenerse si puede prestar ayuda sin poner en peligro la circulación."
+  },
+  {
+    "question_number": 7,
+    "question_text": "¿Con qué frecuencia debe revisarse el nivel de aceite?",
+    "option_a": "Cada mes",
+    "option_b": "Cada semana",
+    "option_c": "Cada 6 meses",
+    "correct_answer": "A",
+    "needs_image": false,
+    "category_id": 4,
+    "difficulty": 2,
+    "explanation": "El nivel de aceite debe revisarse al menos una vez al mes."
+  },
+  {
+    "question_number": 8,
+    "question_text": "¿Cuál es la presión de neumáticos recomendada?",
+    "option_a": "La indicada por el fabricante",
+    "option_b": "Siempre 2.5 bar",
+    "option_c": "No importa",
+    "correct_answer": "A",
+    "needs_image": false,
+    "category_id": 4,
+    "difficulty": 2,
+    "explanation": "Debe seguirse la presión indicada por el fabricante del vehículo."
+  },
+  {
+    "question_number": 9,
+    "question_text": "¿Qué es lo primero que debe hacer ante un accidente?",
+    "option_a": "Mover al herido",
+    "option_b": "Proteger la zona",
+    "option_c": "Llamar a la policía",
+    "correct_answer": "B",
+    "needs_image": false,
+    "category_id": 5,
+    "difficulty": 1,
+    "explanation": "Lo primero es proteger la zona para evitar nuevos accidentes (P-A-S)."
+  },
+  {
+    "question_number": 10,
+    "question_text": "¿Cómo se trata una hemorragia?",
+    "option_a": "Aplicando un torniquete siempre",
+    "option_b": "Presión directa sobre la herida",
+    "option_c": "Con agua fría",
+    "correct_answer": "B",
+    "needs_image": false,
+    "category_id": 5,
+    "difficulty": 2,
+    "explanation": "La hemorragia se trata con presión directa sobre la herida."
+  }
+]

@@ -1,0 +1,122 @@
+[
+  {
+    "question_number": 1,
+    "question_text": "¿Cuáles de las siguientes señales indican prohibición?",
+    "option_a": "Señal de STOP",
+    "option_b": "Señal de ceda el paso",
+    "option_c": "Señal de prohibido estacionar",
+    "correct_answer": "A,C",
+    "explanation": "Tanto el STOP como la prohibición de estacionamiento son señales de prohibición.",
+    "category_id": 1,
+    "difficulty": 2,
+    "needs_image": true
+  },
+  {
+    "question_number": 2,
+    "question_text": "¿Qué elementos de seguridad son obligatorios en el vehículo?",
+    "option_a": "Cinturón de seguridad",
+    "option_b": "Triángulos de emergencia",
+    "option_c": "Botiquín de primeros auxilios",
+    "correct_answer": "A,B,C",
+    "explanation": "Todos los elementos mencionados son obligatorios según la normativa vigente.",
+    "category_id": 3,
+    "difficulty": 1,
+    "needs_image": false
+  },
+  {
+    "question_number": 3,
+    "question_text": "¿En qué situaciones está permitido adelantar?",
+    "option_a": "En curvas con buena visibilidad",
+    "option_b": "En rectas con línea discontinua",
+    "option_c": "En zonas urbanas con tráfico denso",
+    "correct_answer": "B",
+    "explanation": "Solo está permitido adelantar en rectas con línea discontinua y buena visibilidad.",
+    "category_id": 2,
+    "difficulty": 2,
+    "needs_image": false
+  },
+  {
+    "question_number": 4,
+    "question_text": "¿Qué debes revisar antes de iniciar la marcha?",
+    "option_a": "Espejos retrovisores",
+    "option_b": "Nivel de combustible",
+    "option_c": "Presión de neumáticos",
+    "correct_answer": "A,B,C",
+    "explanation": "Es fundamental revisar todos estos elementos antes de conducir por seguridad.",
+    "category_id": 4,
+    "difficulty": 1,
+    "needs_image": false
+  },
+  {
+    "question_number": 5,
+    "question_text": "¿Cuándo es obligatorio usar las luces de cruce?",
+    "option_a": "De noche en vías urbanas",
+    "option_b": "De día en túneles",
+    "option_c": "Solo cuando llueve",
+    "correct_answer": "A,B",
+    "explanation": "Las luces de cruce son obligatorias de noche y en túneles, independientemente de la lluvia.",
+    "category_id": 2,
+    "difficulty": 2,
+    "needs_image": false
+  },
+  {
+    "question_number": 6,
+    "question_text": "En caso de accidente con heridos, ¿qué debes hacer primero?",
+    "option_a": "Llamar a emergencias",
+    "option_b": "Señalizar la zona",
+    "option_c": "Mover los vehículos",
+    "correct_answer": "A,B",
+    "explanation": "Lo primero es llamar a emergencias y señalizar para evitar más accidentes.",
+    "category_id": 5,
+    "difficulty": 2,
+    "needs_image": false
+  },
+  {
+    "question_number": 7,
+    "question_text": "¿Qué indican las líneas amarillas en el pavimento?",
+    "option_a": "Prohibición de estacionamiento",
+    "option_b": "Zona de carga y descarga",
+    "option_c": "Separación de carriles",
+    "correct_answer": "A",
+    "explanation": "Las líneas amarillas generalmente indican prohibición de estacionamiento.",
+    "category_id": 1,
+    "difficulty": 1,
+    "needs_image": true
+  },
+  {
+    "question_number": 8,
+    "question_text": "¿Cuáles son factores de riesgo al conducir?",
+    "option_a": "Fatiga o sueño",
+    "option_b": "Consumo de alcohol",
+    "option_c": "Usar el teléfono móvil",
+    "correct_answer": "A,B,C",
+    "explanation": "Todos estos factores aumentan significativamente el riesgo de accidente.",
+    "category_id": 3,
+    "difficulty": 1,
+    "needs_image": false
+  },
+  {
+    "question_number": 9,
+    "question_text": "¿Qué documentos son obligatorios llevar al conducir?",
+    "option_a": "Licencia de conducir",
+    "option_b": "SOAT vigente",
+    "option_c": "Tarjeta de propiedad",
+    "correct_answer": "A,B,C",
+    "explanation": "Es obligatorio portar todos estos documentos al conducir.",
+    "category_id": 2,
+    "difficulty": 1,
+    "needs_image": false
+  },
+  {
+    "question_number": 10,
+    "question_text": "¿En qué casos se debe reducir la velocidad?",
+    "option_a": "Al aproximarse a un cruce",
+    "option_b": "En zonas escolares",
+    "option_c": "Con buena visibilidad en autopista",
+    "correct_answer": "A,B",
+    "explanation": "Se debe reducir la velocidad al aproximarse a cruces y en zonas escolares por seguridad.",
+    "category_id": 2,
+    "difficulty": 2,
+    "needs_image": false
+  }
+]

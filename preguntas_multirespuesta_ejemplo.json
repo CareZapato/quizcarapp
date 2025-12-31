@@ -1,0 +1,122 @@
+[
+  {
+    "question_number": 1,
+    "category_id": 1,
+    "question_text": "¿Cuáles de las siguientes son señales de prohibición?",
+    "option_a": "Señal de stop y ceda el paso",
+    "option_b": "Señal de velocidad máxima",
+    "option_c": "Señal de prohibido estacionar",
+    "correct_answer": "B,C",
+    "explanation": "Las señales de velocidad máxima y prohibido estacionar son señales de prohibición. La señal de stop es de reglamentación y ceda el paso es de prioridad.",
+    "difficulty": 2,
+    "needs_image": false
+  },
+  {
+    "question_number": 2,
+    "category_id": 2,
+    "question_text": "En una intersección sin señalización, ¿qué vehículos tienen prioridad de paso?",
+    "option_a": "Los que circulan por la derecha",
+    "option_b": "Los vehículos de emergencia con señales acústicas y luminosas",
+    "option_c": "Los que ya están dentro de la intersección",
+    "correct_answer": "B,C",
+    "explanation": "Los vehículos de emergencia siempre tienen prioridad, y los que ya están dentro de la intersección también tienen preferencia sobre los que se aproximan.",
+    "difficulty": 2,
+    "needs_image": false
+  },
+  {
+    "question_number": 3,
+    "category_id": 3,
+    "question_text": "¿Qué elementos de seguridad son obligatorios en un vehículo?",
+    "option_a": "Cinturón de seguridad y airbag",
+    "option_b": "Triángulos de emergencia",
+    "option_c": "Chaleco reflectante",
+    "correct_answer": "A,B,C",
+    "explanation": "Todos estos elementos son obligatorios: cinturón de seguridad, airbag (en vehículos nuevos), triángulos de emergencia y chaleco reflectante.",
+    "difficulty": 1,
+    "needs_image": false
+  },
+  {
+    "question_number": 4,
+    "category_id": 2,
+    "question_text": "¿En qué situaciones está prohibido adelantar?",
+    "option_a": "En curvas y cambios de rasante sin visibilidad",
+    "option_b": "En pasos de peatones",
+    "option_c": "En intersecciones",
+    "correct_answer": "A,B,C",
+    "explanation": "Está prohibido adelantar en todas estas situaciones por razones de seguridad vial.",
+    "difficulty": 2,
+    "needs_image": false
+  },
+  {
+    "question_number": 5,
+    "category_id": 1,
+    "question_text": "¿Cuál de estas señales indica zona escolar?",
+    "option_a": "Señal triangular con niños corriendo",
+    "option_b": "Señal circular azul con límite de velocidad",
+    "option_c": "Señal rectangular informativa",
+    "correct_answer": "A",
+    "explanation": "La señal triangular de advertencia con niños corriendo es la que indica proximidad a una zona escolar.",
+    "difficulty": 1,
+    "needs_image": true
+  },
+  {
+    "question_number": 6,
+    "category_id": 4,
+    "question_text": "¿Qué fluidos deben revisarse periódicamente en un vehículo?",
+    "option_a": "Aceite del motor y líquido de frenos",
+    "option_b": "Líquido refrigerante",
+    "option_c": "Líquido limpiaparabrisas",
+    "correct_answer": "A,B,C",
+    "explanation": "Todos estos fluidos deben revisarse periódicamente para el correcto funcionamiento y seguridad del vehículo.",
+    "difficulty": 1,
+    "needs_image": false
+  },
+  {
+    "question_number": 7,
+    "category_id": 5,
+    "question_text": "En caso de accidente, ¿qué acciones prioritarias debes realizar?",
+    "option_a": "Proteger la zona (P)",
+    "option_b": "Avisar a emergencias (A)",
+    "option_c": "Socorrer a los heridos (S)",
+    "correct_answer": "A,B,C",
+    "explanation": "Debes seguir el protocolo PAS: Proteger, Avisar y Socorrer, en ese orden de prioridad.",
+    "difficulty": 1,
+    "needs_image": false
+  },
+  {
+    "question_number": 8,
+    "category_id": 2,
+    "question_text": "¿Qué luces debes usar obligatoriamente de noche en carretera?",
+    "option_a": "Luces de cruce (cortas)",
+    "option_b": "Luces de posición",
+    "option_c": "Luces antiniebla delanteras",
+    "correct_answer": "A,B",
+    "explanation": "De noche en carretera son obligatorias las luces de cruce y las de posición. Las antiniebla solo cuando la visibilidad es reducida.",
+    "difficulty": 2,
+    "needs_image": false
+  },
+  {
+    "question_number": 9,
+    "category_id": 3,
+    "question_text": "¿Cuáles son factores que aumentan el riesgo de accidente?",
+    "option_a": "Conducir con sueño o cansancio",
+    "option_b": "Usar el teléfono móvil mientras se conduce",
+    "option_c": "No respetar las distancias de seguridad",
+    "correct_answer": "A,B,C",
+    "explanation": "Todos estos factores aumentan significativamente el riesgo de sufrir un accidente de tráfico.",
+    "difficulty": 1,
+    "needs_image": false
+  },
+  {
+    "question_number": 10,
+    "category_id": 2,
+    "question_text": "¿En qué carriles puede circular un vehículo pesado en autopista?",
+    "option_a": "Carril derecho",
+    "option_b": "Carril central (si hay 3 o más carriles)",
+    "option_c": "Carril izquierdo",
+    "correct_answer": "A,B",
+    "explanation": "Los vehículos pesados pueden usar el carril derecho y el central en autopistas de 3 o más carriles, pero no el carril izquierdo que está reservado para adelantamientos.",
+    "difficulty": 2,
+    "needs_image": false
+  }
+]
