@@ -230,7 +230,7 @@ const Dashboard = () => {
                   </span>
                 </div>
                 <div className="quiz-score">
-                  <strong>{quiz.score.toFixed(1)}%</strong>
+                  <strong>{quiz.score ? quiz.score.toFixed(1) : '0.0'}%</strong>
                   <span>{quiz.correct_answers}/{quiz.total_questions}</span>
                 </div>
                 <button 

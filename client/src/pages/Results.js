@@ -255,7 +255,12 @@ const Results = () => {
                       ) : (
                         <FaTimesCircle style={{ color: '#ef4444' }} />
                       )}
-                      <span>Pregunta {index + 1}</span>
+                      <span>
+                        Pregunta {index + 1}
+                        {answer.question_number && (
+                          <span className="question-id"> (Nº {answer.question_number})</span>
+                        )}
+                      </span>
                       {answer.has_multiple_answers && (
                         <span className="badge multi-badge">Múltiple</span>
                       )}

@@ -461,9 +461,19 @@ const Quiz = () => {
   }
 
   const currentQuestion = questions[currentIndex];
+  const hasLongContent = currentQuestion && (
+    (currentQuestion.question_text || '').length > 120 ||
+    ['option_a', 'option_b', 'option_c', 'option_d', 'option_e']
+      .some(key => (currentQuestion[key] || '').length > 70)
+  );
+  
+  // Debug: verificar si viene question_number
+  if (currentQuestion && !currentQuestion.question_number) {
+    console.warn('⚠️ La pregunta no tiene question_number:', currentQuestion.id || currentQuestion.question_id);
+  }
 
   return (
-    <div className="quiz-container">
+    <div className={`quiz-container ${hasLongContent ? 'dense-text-mode' : ''}`}>
       {/* Header */}
       <div className="quiz-header">
         <div className="quiz-progress">
@@ -526,16 +536,15 @@ const Quiz = () => {
       <div className="quiz-content">
         <div className="question-card">
           <div className="question-header">
-            <span className="question-number">Pregunta {currentIndex + 1}</span>
+            <span className="question-number">
+              Pregunta {currentIndex + 1}
+              {currentQuestion.question_number && (
+                <span className="question-id"> (N° {currentQuestion.question_number})</span>
+              )}
+            </span>
           </div>
           
           <h2 className="question-text">{currentQuestion.question_text}</h2>
-          
-          {currentQuestion.has_multiple_answers && (
-            <div className="multi-answer-indicator">
-              ✓ Esta pregunta tiene múltiples respuestas correctas. Puedes seleccionar más de una opción.
-            </div>
-          )}
           
           {currentQuestion.image_url && (
             <div className="question-image">
@@ -582,15 +591,6 @@ const Quiz = () => {
               return (
                 <div className="multi-answer-selected-info">
                   📌 Respuestas seleccionadas: {currentAnswer.join(', ')} ({currentAnswer.length} {currentAnswer.length === 1 ? 'opción' : 'opciones'})
-                </div>
-              );
-            }
-            
-            // Mostrar mensaje si es multi-respuesta pero no hay selecciones
-            if (currentQuestion.has_multiple_answers && !currentAnswer) {
-              return (
-                <div className="multi-answer-empty-info">
-                  ℹ️ Esta pregunta permite múltiples respuestas. Selecciona las opciones correctas.
                 </div>
               );
             }

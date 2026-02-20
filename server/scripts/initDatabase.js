@@ -54,7 +54,7 @@ async function initDatabaseLegacy() {
         question_text TEXT NOT NULL,
         option_a TEXT NOT NULL,
         option_b TEXT NOT NULL,
-        option_c TEXT NOT NULL,
+        option_c TEXT,
         correct_answer TEXT NOT NULL,
         explanation TEXT,
         image_url TEXT,

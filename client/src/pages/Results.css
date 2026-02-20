@@ -212,6 +212,12 @@
   color: var(--dark);
 }
 
+.question-id {
+  opacity: 0.7;
+  font-weight: 500;
+  font-size: 0.9em;
+}
+
 .answer-category {
   padding: 4px 12px;
   background: var(--light);
@@ -222,21 +228,30 @@
 
 .answer-question {
   color: var(--dark);
-  font-size: 20px;
-  margin-bottom: 16px;
-  line-height: 1.5;
+  font-size: 18px;
+  margin-bottom: 12px;
+  line-height: 1.4;
+  font-weight: 500;
 }
 
 .answer-image {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  max-height: 300px;
 }
 
 .answer-image img {
-  max-width: 100%;
-  max-height: 300px;
+  max-width: 90%;
+  max-height: 280px !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain;
   border-radius: 8px;
   box-shadow: 0 2px 8px var(--shadow);
+  display: block;
 }
 
 .answer-options {
@@ -364,150 +379,187 @@
 
 @media (max-width: 768px) {
   .results-container {
-    padding: 12px;
+    padding: 10px;
   }
 
   .results-hero {
-    padding: 24px 16px;
-    margin-bottom: 20px;
+    padding: 18px 12px;
+    margin-bottom: 14px;
+    border-radius: 12px;
   }
 
   .results-hero h1 {
-    font-size: 28px;
+    font-size: 22px;
   }
 
   .results-hero p {
-    font-size: 14px;
-    margin-bottom: 20px;
+    font-size: 12px;
+    margin-bottom: 14px;
   }
 
   .results-icon {
-    font-size: 60px;
-    margin-bottom: 12px;
+    font-size: 44px;
+    margin-bottom: 8px;
   }
 
   .score-circle {
-    width: 140px;
-    height: 140px;
+    width: 118px;
+    height: 118px;
   }
 
   .score-value {
-    font-size: 32px;
+    font-size: 24px;
   }
 
   .score-label {
-    font-size: 14px;
+    font-size: 11px;
+  }
+
+  .hero-actions {
+    margin-top: 12px;
+  }
+
+  .hero-actions .btn {
+    padding: 8px 10px;
+    font-size: 12px;
   }
 
   .results-stats {
     grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: 8px;
+    margin-bottom: 14px;
   }
 
   .stat-card {
-    padding: 16px 12px;
+    padding: 10px 8px;
+    gap: 8px;
+    border-radius: 10px;
   }
 
   .stat-card h3 {
-    font-size: 20px;
-  }
-
-  .stat-card p {
-    font-size: 12px;
-  }
-
-  .stat-icon {
-    width: 40px;
-    height: 40px;
-  }
-
-  .results-review {
-    padding: 20px 16px;
-    margin-bottom: 20px;
-  }
-
-  .review-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-    margin-bottom: 16px;
-  }
-
-  .review-header h2 {
-    font-size: 22px;
-  }
-
-  .review-header .btn {
-    width: 100%;
-  }
-
-  .answer-item {
-    padding: 16px;
-  }
-
-  .answer-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .answer-number {
-    font-size: 14px;
-  }
-
-  .answer-category {
-    font-size: 12px;
-  }
-
-  .answer-question {
     font-size: 16px;
   }
 
-  .answer-image img {
-    max-height: 200px;
+  .stat-card p {
+    font-size: 11px;
   }
 
-  .answer-option {
-    padding: 10px 12px;
-    gap: 10px;
+  .stat-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
   }
 
-  .answer-option .option-letter {
-    width: 28px;
-    height: 28px;
-    font-size: 14px;
+  .results-review {
+    padding: 12px;
+    margin-bottom: 14px;
+    border-radius: 12px;
   }
 
-  .answer-option .option-text {
-    font-size: 14px;
+  .review-header {
+    gap: 8px;
+    margin-bottom: 10px;
   }
 
-  .option-badges {
-    flex-wrap: wrap;
+  .review-header h2 {
+    font-size: 18px;
   }
 
-  .badge {
+  .review-header .btn {
+    width: auto;
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+
+  .answer-item {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .answer-header {
+    align-items: center;
+    gap: 6px;
+  }
+
+  .answer-number {
+    font-size: 12px;
+  }
+
+  .answer-category {
     font-size: 11px;
     padding: 3px 8px;
   }
 
-  .answer-explanation {
-    padding: 12px;
+  .answer-question {
     font-size: 14px;
+    line-height: 1.3;
+    margin-bottom: 8px;
+  }
+
+  .answer-image {
+    margin-bottom: 8px;
+    max-height: 145px;
+  }
+
+  .answer-image img {
+    max-height: 132px !important;
+    max-width: 100%;
+  }
+
+  .answer-options {
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .answer-option {
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    gap: 6px 8px;
+    padding: 8px;
+    align-items: start;
+  }
+
+  .answer-option .option-letter {
+    width: 22px;
+    height: 22px;
+    font-size: 11px;
+  }
+
+  .answer-option .option-text {
+    font-size: 12px;
+    line-height: 1.25;
+  }
+
+  .option-badges {
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .badge {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .answer-explanation {
+    padding: 8px;
+    font-size: 12px;
+    line-height: 1.35;
   }
 
   .results-actions {
-    flex-direction: column;
-    gap: 12px;
-    margin-top: 16px;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: nowrap;
   }
 
   .results-actions .btn {
-    width: 100%;
+    width: auto;
     justify-content: center;
-    padding: 14px 20px;
-    font-size: 15px;
+    padding: 8px 10px;
+    font-size: 12px;
+    gap: 6px;
+    white-space: nowrap;
   }
 
   .results-actions .btn span {
@@ -517,20 +569,20 @@
 
 @media (max-width: 480px) {
   .results-hero h1 {
-    font-size: 24px;
+    font-size: 20px;
   }
 
   .results-icon {
-    font-size: 50px;
+    font-size: 38px;
   }
 
   .score-circle {
-    width: 120px;
-    height: 120px;
+    width: 104px;
+    height: 104px;
   }
 
   .score-value {
-    font-size: 28px;
+    font-size: 22px;
   }
 
   .results-stats {
@@ -538,10 +590,19 @@
   }
 
   .review-header h2 {
-    font-size: 20px;
+    font-size: 16px;
   }
 
   .answer-question {
-    font-size: 15px;
+    font-size: 13px;
+  }
+
+  .results-actions {
+    gap: 6px;
+  }
+
+  .results-actions .btn {
+    padding: 7px 9px;
+    font-size: 11px;
   }
 }

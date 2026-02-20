@@ -551,6 +551,7 @@ router.get('/:quizId/results', authMiddleware, async (req, res) => {
         ua.user_answer,
         ua.is_correct,
         q.id as question_id,
+        q.question_number,
         q.question_text,
         q.option_a,
         q.option_b,
@@ -558,7 +559,10 @@ router.get('/:quizId/results', authMiddleware, async (req, res) => {
         q.option_d,
         q.option_e,
         q.correct_answer,
-        q.has_multiple_answers,
+        CASE
+          WHEN q.correct_answer LIKE '%,%' THEN TRUE
+          ELSE FALSE
+        END AS has_multiple_answers,
         q.explanation,
         q.image_url,
         c.name as category_name
@@ -638,6 +642,7 @@ router.get('/current', authMiddleware, async (req, res) => {
     const questions = await dbAll(
       `SELECT 
         q.id as question_id,
+        q.question_number,
         q.question_text,
         q.option_a,
         q.option_b,

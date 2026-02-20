@@ -21,7 +21,6 @@ const Admin = () => {
   const [questionsPerPage] = useState(10);
   const [showBackupSection, setShowBackupSection] = useState(false);
   const [backupJsonInput, setBackupJsonInput] = useState('');
-  const [confirmationText, setConfirmationText] = useState('');
   const [quickUploadModal, setQuickUploadModal] = useState({ show: false, questionId: null, questionNumber: null });
   const [quickUploadingImage, setQuickUploadingImage] = useState(false);
   const [previewModal, setPreviewModal] = useState({ show: false, question: null });
@@ -200,8 +199,19 @@ const Admin = () => {
     }
   };
 
+  const handleQuickDrop = async (e, questionId) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const file = e.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      await handleQuickImageUpload(file, questionId);
+    }
+  };
+
   const handleQuickImageUpload = async (file, questionId) => {
     setQuickUploadingImage(true);
+    const currentScrollY = window.scrollY;
     try {
       const formDataImage = new FormData();
       formDataImage.append('image', file);
@@ -216,11 +226,42 @@ const Admin = () => {
         ...fullQuestion,
         image_url: uploadRes.data.imageUrl
       });
+
+      // Actualizar estado local para evitar recargar toda la vista y perder posición
+      setQuestions(prev => prev.map(q =>
+        q.id === questionId ? { ...q, image_url: uploadRes.data.imageUrl } : q
+      ));
+
+      setQuestionsMap(prev => {
+        if (!prev) return prev;
+
+        const updatedQuestions = prev.questions.map(q =>
+          q.id === questionId
+            ? { ...q, image_url: uploadRes.data.imageUrl, image_status: 'complete' }
+            : q
+        );
+
+        const wasMissing = prev.questions.some(q => q.id === questionId && q.image_status === 'missing');
+
+        return {
+          ...prev,
+          questions: updatedQuestions,
+          stats: wasMissing
+            ? {
+                ...prev.stats,
+                withImages: (prev.stats.withImages || 0) + 1,
+                needingImages: Math.max((prev.stats.needingImages || 0) - 1, 0)
+              }
+            : prev.stats
+        };
+      });
       
       alert('✅ Imagen agregada exitosamente');
       setQuickUploadModal({ show: false, questionId: null, questionNumber: null });
-      loadQuestionsMap();
-      loadData();
+
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: currentScrollY, behavior: 'auto' });
+      });
     } catch (error) {
       console.error('Error al subir imagen:', error);
       alert('❌ Error al subir imagen');
@@ -431,8 +472,7 @@ const Admin = () => {
       return;
     }
 
-    if (confirmationText !== 'RESTAURAR') {
-      alert('⚠️ Por favor escribe "RESTAURAR" para confirmar la operación.');
+    if (!window.confirm('⚠️ ADVERTENCIA: Esta operación eliminará TODA la base de datos actual.\n\n¿Estás seguro de continuar?')) {
       return;
     }
 
@@ -489,6 +529,11 @@ const Admin = () => {
           <button
             className="btn btn-info btn-small"
             onClick={() => {
+              // Cerrar otras secciones
+              setShowBackupSection(false);
+              setShowImportForm(false);
+              setShowForm(false);
+              // Toggle el modo de vista
               setViewMode(viewMode === 'list' ? 'map' : 'list');
               if (viewMode === 'list') loadQuestionsMap();
             }}
@@ -497,20 +542,41 @@ const Admin = () => {
           </button>
           <button
             className="btn btn-info btn-small"
-            onClick={() => setShowBackupSection(!showBackupSection)}
+            onClick={() => {
+              // Cerrar otras secciones
+              setShowImportForm(false);
+              setShowForm(false);
+              setViewMode('list');
+              // Toggle backup section
+              setShowBackupSection(!showBackupSection);
+            }}
             title="Backup y Restauración de la BD"
           >
             💾 Backup/Restore
           </button>
           <button
             className="btn btn-warning btn-small"
-            onClick={() => setShowImportForm(!showImportForm)}
+            onClick={() => {
+              // Cerrar otras secciones
+              setShowBackupSection(false);
+              setShowForm(false);
+              setViewMode('list');
+              // Toggle import form
+              setShowImportForm(!showImportForm);
+            }}
           >
             📥 Importar JSON
           </button>
           <button
             className="btn btn-primary"
-            onClick={() => setShowForm(!showForm)}
+            onClick={() => {
+              // Cerrar otras secciones
+              setShowBackupSection(false);
+              setShowImportForm(false);
+              setViewMode('list');
+              // Toggle form
+              setShowForm(!showForm);
+            }}
           >
             <FaPlus /> {showForm ? 'Cancelar' : 'Nueva Pregunta'}
           </button>
@@ -550,7 +616,6 @@ const Admin = () => {
                 onClick={() => {
                   setShowBackupSection(false);
                   setBackupJsonInput('');
-                  setConfirmationText('');
                 }}
               >
                 ✕ Cerrar
@@ -601,25 +666,13 @@ const Admin = () => {
                   value={backupJsonInput}
                   onChange={(e) => setBackupJsonInput(e.target.value)}
                   placeholder="Pega aquí el contenido del archivo de backup (JSON)..."
-                  rows="8"
                   className="backup-textarea"
                 />
-                
-                <div className="confirmation-box">
-                  <label>Para confirmar, escribe <strong>RESTAURAR</strong>:</label>
-                  <input
-                    type="text"
-                    value={confirmationText}
-                    onChange={(e) => setConfirmationText(e.target.value)}
-                    placeholder="Escribe: RESTAURAR"
-                    className="confirmation-input"
-                  />
-                </div>
                 
                 <button
                   className="btn btn-danger btn-large"
                   onClick={handleRestoreBackup}
-                  disabled={importing || !backupJsonInput.trim() || confirmationText !== 'RESTAURAR'}
+                  disabled={importing || !backupJsonInput.trim()}
                 >
                   {importing ? '⏳ Restaurando...' : '🔄 Restaurar Base de Datos'}
                 </button>
@@ -1382,6 +1435,8 @@ const Admin = () => {
               <div 
                 className="quick-paste-area"
                 onPaste={(e) => handleQuickPaste(e, quickUploadModal.questionId)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => handleQuickDrop(e, quickUploadModal.questionId)}
                 tabIndex={0}
                 autoFocus
               >

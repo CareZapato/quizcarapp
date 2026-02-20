@@ -221,6 +221,39 @@ async function verifyColumnTypes() {
       await query('ALTER TABLE questions ADD COLUMN option_e TEXT');
       console.log('✅ Columna option_e agregada');
     }
+
+    // Permitir NULL en option_c para preguntas de 2 opciones (p.ej. Verdadero/Falso)
+    const checkOptionC = await query(`
+      SELECT is_nullable
+      FROM information_schema.columns
+      WHERE table_name = 'questions' AND column_name = 'option_c'
+    `);
+
+    if (checkOptionC.rows[0]?.is_nullable === 'NO') {
+      console.log('⚠️  Ajustando questions.option_c para permitir NULL...');
+      await query('ALTER TABLE questions ALTER COLUMN option_c DROP NOT NULL');
+      console.log('✅ questions.option_c ahora permite NULL');
+    }
+
+    // Verificar y agregar has_multiple_answers si no existe
+    const checkHasMultipleAnswers = await query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'questions' AND column_name = 'has_multiple_answers'
+    `);
+
+    if (checkHasMultipleAnswers.rows.length === 0) {
+      console.log('⚠️  Agregando columna has_multiple_answers...');
+      await query('ALTER TABLE questions ADD COLUMN has_multiple_answers BOOLEAN DEFAULT FALSE');
+      await query(`
+        UPDATE questions
+        SET has_multiple_answers = CASE
+          WHEN correct_answer LIKE '%,%' THEN TRUE
+          ELSE FALSE
+        END
+      `);
+      console.log('✅ Columna has_multiple_answers agregada y datos actualizados');
+    }
     
     console.log('✅ Tipos de columnas y estructura verificados');
   } catch (error) {

@@ -66,8 +66,8 @@ app.use(cors({
   },
   credentials: true
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Servir archivos estáticos (imágenes de preguntas)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
