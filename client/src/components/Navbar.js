@@ -29,7 +29,7 @@ const Navbar = ({ quizMode = null }) => {
             <Link to="/dashboard" className="navbar-brand">
               <FaCar className="brand-icon" />
               <span className="brand-text">DriverTest</span>
-              <span className="brand-version">v0.4.2</span>
+              <span className="brand-version">v0.4.5</span>
             </Link>
             {isAdmin && (
               <Link 
