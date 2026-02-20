@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { FaClock, FaCheckCircle } from 'react-icons/fa';
+import { FaClock, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 import './Quiz.css';
 
 const Quiz = () => {
@@ -19,6 +19,7 @@ const Quiz = () => {
   const [loadingNext, setLoadingNext] = useState(false);
   const [abandoning, setAbandoning] = useState(false);
   const [fontSize, setFontSize] = useState('small'); // 'small', 'medium', 'large'
+  const [answerFeedback, setAnswerFeedback] = useState({ show: false, isCorrect: null });
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -256,6 +257,9 @@ const Quiz = () => {
 
       // En modo práctica, avanzar automáticamente SOLO si es respuesta única
       if (isPracticeMode && !question?.has_multiple_answers) {
+        // Mostrar feedback visual
+        setAnswerFeedback({ show: true, isCorrect: response.data.isCorrect });
+        
         // Actualizar estadísticas
         setPracticeStats(prev => ({
           correct: prev.correct + (response.data.isCorrect ? 1 : 0),
@@ -264,8 +268,9 @@ const Quiz = () => {
 
         // Esperar un momento para mostrar feedback y avanzar
         setTimeout(() => {
+          setAnswerFeedback({ show: false, isCorrect: null });
           handleNextPracticeQuestion();
-        }, 800);
+        }, 1200);
       }
     } catch (error) {
       console.error('Error al guardar respuesta:', error);
@@ -338,6 +343,26 @@ const Quiz = () => {
 
   const handleAbandon = async () => {
     if (abandoning) return; // Prevenir múltiples clicks
+
+    // En modo práctica, preguntar si desea terminar y ver resultados
+    if (isPracticeMode) {
+      if (!window.confirm('¿Deseas terminar la práctica y ver tus resultados?')) {
+        return;
+      }
+      // Navegar a resultados
+      setAbandoning(true);
+      try {
+        await axios.post('/quiz/complete', {
+          quizId: quiz.id,
+          timeTaken: 0 // No importa el tiempo en modo práctica
+        });
+        navigate(`/results/${quiz.id}`);
+      } catch (error) {
+        console.error('Error al finalizar práctica:', error);
+        setAbandoning(false);
+      }
+      return;
+    }
 
     // Para otros modos, abandonar normalmente
     if (!window.confirm('¿Estás seguro de que deseas abandonar este cuestionario? Se registrará como abandonado y volverás al inicio.')) {
@@ -592,16 +617,20 @@ const Quiz = () => {
                     userAnswer: currentAnswer
                   });
                   
+                  // Mostrar feedback visual
+                  setAnswerFeedback({ show: true, isCorrect: response.data.isCorrect });
+                  
                   // Actualizar estadísticas
                   setPracticeStats(prev => ({
                     correct: prev.correct + (response.data.isCorrect ? 1 : 0),
                     total: prev.total + 1
                   }));
                   
-                  // Avanzar a la siguiente pregunta
+                  // Esperar un momento para mostrar feedback y avanzar
                   setTimeout(() => {
+                    setAnswerFeedback({ show: false, isCorrect: null });
                     handleNextPracticeQuestion();
-                  }, 800);
+                  }, 1200);
                 } catch (error) {
                   console.error('Error al confirmar respuesta:', error);
                 }
@@ -662,6 +691,25 @@ const Quiz = () => {
           </div>
         )}
       </div>
+
+      {/* Feedback visual para modo práctica */}
+      {answerFeedback.show && (
+        <div className={`answer-feedback ${answerFeedback.isCorrect ? 'correct' : 'incorrect'}`}>
+          <div className="feedback-content">
+            {answerFeedback.isCorrect ? (
+              <>
+                <FaCheckCircle className="feedback-icon" />
+                <span className="feedback-text">¡Correcto!</span>
+              </>
+            ) : (
+              <>
+                <FaTimesCircle className="feedback-icon" />
+                <span className="feedback-text">Incorrecto</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
     </>
   );
