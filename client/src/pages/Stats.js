@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { FaChartLine, FaCheckCircle, FaTimesCircle, FaTrophy } from 'react-icons/fa';
+import ProgressChart from '../components/ProgressChart';
 import './Stats.css';
 
 const Stats = () => {
@@ -22,7 +23,7 @@ const Stats = () => {
     try {
       const [statsRes, historyRes] = await Promise.all([
         axios.get('/stats/overview'),
-        axios.get(`/stats/history?page=${currentPage}&limit=10`)
+        axios.get(`/stats/history?page=${currentPage}&limit=5`)
       ]);
       
       setStats(statsRes.data);
@@ -33,12 +34,6 @@ const Stats = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   if (loading) {
@@ -62,60 +57,63 @@ const Stats = () => {
   return (
     <div className="stats-container">
       <div className="stats-header">
-        <h1>📊 Mis Estadísticas</h1>
+        <h1>Mis Estadísticas</h1>
         <p>Analiza tu progreso y rendimiento</p>
       </div>
 
       {/* Overview Cards */}
-      <div className="overview-grid">
-        <div className="overview-card highlight">
-          <div className="card-icon" style={{ background: '#dbeafe' }}>
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: '#dbeafe' }}>
             <FaChartLine style={{ color: '#3b82f6' }} />
           </div>
-          <div className="card-content">
-            <h2>{stats.overview.totalQuizzes}</h2>
-            <p>Cuestionarios Completados</p>
+          <div className="stat-info">
+            <h3>{stats.overview.totalQuizzes}</h3>
+            <p>Cuestionarios</p>
           </div>
         </div>
 
-        <div className="overview-card">
-          <div className="card-icon" style={{ background: '#d1fae5' }}>
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: '#d1fae5' }}>
             <FaCheckCircle style={{ color: '#10b981' }} />
           </div>
-          <div className="card-content">
-            <h2>{stats.overview.passedQuizzes}</h2>
+          <div className="stat-info">
+            <h3>{stats.overview.passedQuizzes}</h3>
             <p>Aprobados</p>
-            <span className="percentage">
+            <span className="stat-percentage">
               {stats.overview.totalQuizzes > 0
                 ? ((stats.overview.passedQuizzes / stats.overview.totalQuizzes) * 100).toFixed(1)
-                : 0}% de éxito
+                : 0}%
             </span>
           </div>
         </div>
 
-        <div className="overview-card">
-          <div className="card-icon" style={{ background: '#fee2e2' }}>
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: '#fee2e2' }}>
             <FaTimesCircle style={{ color: '#ef4444' }} />
           </div>
-          <div className="card-content">
-            <h2>{stats.overview.failedQuizzes}</h2>
+          <div className="stat-info">
+            <h3>{stats.overview.failedQuizzes}</h3>
             <p>Suspendidos</p>
           </div>
         </div>
 
-        <div className="overview-card">
-          <div className="card-icon" style={{ background: '#fef3c7' }}>
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: '#fef3c7' }}>
             <FaTrophy style={{ color: '#f59e0b' }} />
           </div>
-          <div className="card-content">
-            <h2>{stats.overview.averageScore.toFixed(1)}%</h2>
-            <p>Promedio General</p>
-            <span className="percentage">
+          <div className="stat-info">
+            <h3>{stats.overview.averageScore.toFixed(1)}%</h3>
+            <p>Promedio</p>
+            <span className="stat-percentage">
               {stats.overview.accuracy.toFixed(1)}% precisión
             </span>
           </div>
         </div>
       </div>
+
+      {/* Gráfico de Progreso en el Tiempo */}
+      <ProgressChart />
 
       {/* Progreso por Categoría */}
       {stats.categoryProgress && stats.categoryProgress.length > 0 && (
@@ -167,50 +165,42 @@ const Stats = () => {
           </div>
         ) : (
           <>
-            <div className="history-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Modo</th>
-                    <th>Resultado</th>
-                    <th>Puntuación</th>
-                    <th>Tiempo</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.map((quiz) => (
-                    <tr key={quiz.id}>
-                      <td>{new Date(quiz.completed_at).toLocaleString('es-ES')}</td>
-                      <td>
-                        <span className="mode-badge">
-                          {quiz.mode === 'real' ? '🚗 Real' : '📚 Extenso'}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`result-badge ${quiz.passed ? 'passed' : 'failed'}`}>
-                          {quiz.passed ? '✓ Aprobado' : '✗ Suspendido'}
-                        </span>
-                      </td>
-                      <td>
-                        <strong>{quiz.score.toFixed(1)}%</strong>
-                        <br />
-                        <small>{quiz.correct_answers}/{quiz.total_questions}</small>
-                      </td>
-                      <td>{formatTime(quiz.time_taken)}</td>
-                      <td>
-                        <button
-                          onClick={() => navigate(`/results/${quiz.id}`)}
-                          className="btn-small btn-primary"
-                        >
-                          Ver Detalles
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="quiz-list">
+              {history.map((quiz) => (
+                <div key={quiz.id} className="quiz-item">
+                  <div className="quiz-info">
+                    <span className={`quiz-badge ${quiz.status_code === 'abandonado' ? 'neutral' : 'info'}`}>
+                      {quiz.status_code === 'abandonado' ? '⏹ Abandonado' : '✓ Terminado'}
+                    </span>
+                    <span className="quiz-mode">
+                      {quiz.mode === 'real' && 'Modo Real'}
+                      {quiz.mode === 'extended' && 'Modo Extenso'}
+                      {quiz.mode === 'practice' && 'Modo Práctica'}
+                    </span>
+                    <span className="quiz-date">
+                      {new Date(quiz.completed_at).toLocaleString('es-ES', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                  <div className="quiz-score">
+                    <strong>{quiz.status_code === 'abandonado' ? '--' : `${quiz.score ? quiz.score.toFixed(1) : '0.0'}%`}</strong>
+                    <span className="quiz-metric">Respondidas: {quiz.answered_questions || 0}/{quiz.total_questions}</span>
+                    <span className="quiz-metric">Correctas: {quiz.correct_answers}/{quiz.total_questions}</span>
+                  </div>
+                  <button 
+                    onClick={() => navigate(`/results/${quiz.id}`)}
+                    className="btn btn-outline"
+                    disabled={quiz.status_code === 'abandonado'}
+                  >
+                    {quiz.status_code === 'abandonado' ? 'Sin Revisión' : 'Ver Detalles'}
+                  </button>
+                </div>
+              ))}
             </div>
 
             {/* Pagination */}

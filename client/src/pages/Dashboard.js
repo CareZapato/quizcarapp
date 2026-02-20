@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { FaClock, FaCheckCircle, FaTimesCircle, FaPlay } from 'react-icons/fa';
+import { useAuth } from '../context/AuthContext';
 import './Dashboard.css';
 
 const Dashboard = () => {
+  const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hasActiveQuiz, setHasActiveQuiz] = useState(false);
@@ -99,7 +101,7 @@ const Dashboard = () => {
     <div className="container dashboard">
       <div className="dashboard-header">
         <h1>Panel de Control</h1>
-        <p>Bienvenido a tu plataforma de práctica de conducción</p>
+        <p>¡Hola, <strong>{user?.username || 'Usuario'}</strong>! Bienvenido a tu plataforma de práctica de conducción</p>
       </div>
 
       {hasActiveQuiz && (

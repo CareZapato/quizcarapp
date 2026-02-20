@@ -17,6 +17,7 @@ import Quiz from './pages/Quiz';
 import Results from './pages/Results';
 import Stats from './pages/Stats';
 import Admin from './pages/Admin';
+import Profile from './pages/Profile';
 
 // Configurar axios para usar la URL base dinámica
 const API_URL = process.env.REACT_APP_API_URL || '/api';
@@ -68,6 +69,14 @@ function App() {
               element={
                 <PrivateRoute>
                   <Stats />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <PrivateRoute>
+                  <Profile />
                 </PrivateRoute>
               }
             />

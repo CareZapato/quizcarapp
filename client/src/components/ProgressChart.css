@@ -1,0 +1,265 @@
+.progress-chart-container {
+  background: var(--white);
+  border-radius: 12px;
+  padding: 32px;
+  margin-bottom: 40px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.progress-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.progress-chart-header h2 {
+  color: var(--dark);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  margin: 0;
+}
+
+.period-toggle {
+  display: flex;
+  gap: 8px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.period-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.period-btn:hover {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.period-btn.active {
+  background: var(--white);
+  color: #3b82f6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.period-btn svg {
+  font-size: 16px;
+}
+
+.chart-wrapper {
+  position: relative;
+  width: 100%;
+  height: 250px;
+  margin-top: 20px;
+}
+
+.chart-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.chart-point {
+  cursor: pointer;
+  transition: r 0.2s ease;
+}
+
+.chart-point:hover {
+  r: 1.5;
+}
+
+.y-axis-labels {
+  position: absolute;
+  left: 0;
+  top: 20px;
+  bottom: 30px;
+  width: 35px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.y-label {
+  font-size: 11px;
+  color: #9ca3af;
+  text-align: right;
+  font-weight: 500;
+}
+
+.x-axis-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding: 0 40px 0 45px;
+}
+
+.x-label {
+  font-size: 11px;
+  color: #9ca3af;
+  text-align: center;
+  font-weight: 500;
+}
+
+.chart-tooltip-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.tooltip-trigger {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.chart-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 10;
+}
+
+.tooltip-trigger:hover .chart-tooltip {
+  opacity: 1;
+}
+
+.chart-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: rgba(0, 0, 0, 0.9);
+}
+
+.tooltip-date {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.tooltip-score {
+  font-size: 16px;
+  font-weight: 700;
+  color: #3b82f6;
+  margin-bottom: 2px;
+}
+
+.tooltip-count {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.chart-empty {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.chart-empty p {
+  color: #9ca3af;
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.chart-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 250px;
+}
+
+@media (max-width: 768px) {
+  .progress-chart-container {
+    padding: 24px 20px;
+  }
+
+  .progress-chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .progress-chart-header h2 {
+    font-size: 20px;
+  }
+
+  .period-toggle {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .period-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .period-btn span {
+    display: none;
+  }
+
+  .period-btn svg {
+    font-size: 18px;
+  }
+
+  .chart-wrapper {
+    height: 200px;
+  }
+
+  .x-axis-labels {
+    padding: 0 35px 0 40px;
+  }
+
+  .x-label {
+    font-size: 10px;
+  }
+
+  .y-label {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .progress-chart-container {
+    padding: 20px 16px;
+  }
+
+  .chart-wrapper {
+    height: 180px;
+  }
+
+  .x-axis-labels {
+    padding: 0 30px 0 35px;
+  }
+}

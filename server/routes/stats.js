@@ -190,4 +190,50 @@ router.get('/history', authMiddleware, async (req, res) => {
   }
 });
 
+// Obtener progreso en el tiempo
+router.get('/progress', authMiddleware, async (req, res) => {
+  try {
+    await ensureQuizStatusSchema();
+
+    const userId = req.userId;
+    const { period = 'week' } = req.query;
+
+    let dateGrouping;
+    let limit;
+    
+    if (period === 'day') {
+      dateGrouping = "DATE(completed_at)";
+      limit = 7;
+    } else if (period === 'week') {
+      dateGrouping = "DATE_TRUNC('week', completed_at)";
+      limit = 8;
+    } else {
+      dateGrouping = "DATE_TRUNC('month', completed_at)";
+      limit = 6;
+    }
+
+    const progressData = await dbAll(
+      `SELECT 
+        ${dateGrouping} as date,
+        ROUND(AVG(q.score)::numeric, 1) as percentage,
+        COUNT(*)::integer as count
+       FROM quizzes q
+       JOIN quiz_statuses qs ON q.status_id = qs.id
+       WHERE q.user_id = $1 AND qs.code = 'terminado'
+       GROUP BY ${dateGrouping}
+       ORDER BY date DESC
+       LIMIT $2`,
+      [userId, limit]
+    );
+
+    // Revertir el orden para que sea cronológico (más antiguo primero)
+    const sortedData = progressData.reverse();
+
+    res.json(sortedData);
+  } catch (error) {
+    console.error('Error al obtener progreso:', error);
+    res.status(500).json({ error: 'Error al obtener progreso en el tiempo' });
+  }
+});
+
 export default router;

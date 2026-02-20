@@ -28,14 +28,26 @@ const Results = () => {
       console.log('Datos de resultados recibidos:', {
         quizId: response.data.quiz.id,
         mode: response.data.quiz.mode,
-        completed: response.data.quiz.completed,
+        status: response.data.quiz.status,
         score: response.data.quiz.score
       });
+      
+      // Validar que el quiz esté terminado
+      if (response.data.quiz.status !== 'terminado') {
+        console.warn('Intento de ver resultados de quiz no terminado:', response.data.quiz.status);
+        alert('Este cuestionario no ha sido completado o fue abandonado');
+        navigate('/dashboard');
+        return;
+      }
       
       setData(response.data);
     } catch (error) {
       console.error('Error al cargar resultados:', error);
-      alert('Error al cargar los resultados');
+      if (error.response?.status === 400) {
+        alert('Este cuestionario no puede ser visualizado');
+      } else {
+        alert('Error al cargar los resultados');
+      }
       navigate('/dashboard');
     } finally {
       setLoading(false);

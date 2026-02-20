@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { FaUser, FaChartBar, FaSignOutAlt, FaCog, FaHome } from 'react-icons/fa';
+import { FaUser, FaChartBar, FaSignOutAlt, FaCog, FaHome, FaCar } from 'react-icons/fa';
 import './Navbar.css';
 
 const Navbar = ({ quizMode = null }) => {
@@ -27,7 +27,9 @@ const Navbar = ({ quizMode = null }) => {
           // Navbar normal
           <>
             <Link to="/dashboard" className="navbar-brand">
-              🚗 Test de Conducción
+              <FaCar className="brand-icon" />
+              <span className="brand-text">DriverTest</span>
+              <span className="brand-version">v0.4.2</span>
             </Link>
             {isAdmin && (
               <Link to="/admin" className="navbar-link admin-link" title="Administración" aria-label="Administración">
@@ -49,10 +51,10 @@ const Navbar = ({ quizMode = null }) => {
               </div>
 
               <div className="navbar-menu-right">
-                <div className="navbar-user" title={user.username} aria-label={`Usuario: ${user.username}`}>
+                <Link to="/profile" className="navbar-link" title="Perfil" aria-label="Perfil">
                   <FaUser />
-                  <span className="nav-text">{user.username}</span>
-                </div>
+                  <span className="nav-text">Perfil</span>
+                </Link>
                 <button onClick={handleLogout} className="btn-logout" title="Salir" aria-label="Salir">
                   <FaSignOutAlt />
                   <span className="nav-text">Salir</span>
