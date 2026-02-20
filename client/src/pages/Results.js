@@ -10,6 +10,8 @@ const Results = () => {
   const [showAnswers, setShowAnswers] = useState(true);
   const [expandedAnswers, setExpandedAnswers] = useState(new Set());
   const [closing, setClosing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const questionsPerPage = 10;
   
   const { quizId } = useParams();
   const navigate = useNavigate();
@@ -18,6 +20,11 @@ const Results = () => {
     loadResults();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quizId]);
+
+  // Scroll to top when page changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentPage]);
 
   const loadResults = async () => {
     try {
@@ -220,13 +227,21 @@ const Results = () => {
 
         {showAnswers && (
           <div className="answers-list">
-            {answers.map((answer, index) => {
+            {answers
+              .slice((currentPage - 1) * questionsPerPage, currentPage * questionsPerPage)
+              .map((answer, index) => {
+              const globalIndex = (currentPage - 1) * questionsPerPage + index;
               const isCorrect = answer.is_correct === true || answer.is_correct === 1;
               const userAnswered = answer.user_answer !== null && answer.user_answer !== '';
               const isExpanded = expandedAnswers.has(answer.id);
               
               return (
                 <div key={answer.id} className={`answer-item ${isCorrect ? 'correct' : 'incorrect'} ${!userAnswered ? 'unanswered' : ''}`}>
+                  {answer.question_number && (
+                    <div className="question-number-badge">
+                      {answer.question_number}
+                    </div>
+                  )}
                   <button
                     className="answer-summary"
                     onClick={() => toggleAnswerExpanded(answer.id)}
@@ -234,27 +249,26 @@ const Results = () => {
                   >
                     <div className="answer-header">
                       <div className="answer-number">
-                        {!userAnswered ? (
-                          <FaTimesCircle style={{ color: '#9ca3af' }} />
-                        ) : isCorrect ? (
-                          <FaCheckCircle style={{ color: '#10b981' }} />
-                        ) : (
-                          <FaTimesCircle style={{ color: '#ef4444' }} />
-                        )}
-                        <span>
-                          Pregunta {index + 1}
-                          {answer.question_number && (
-                            <span className="question-id"> (Nº {answer.question_number})</span>
-                          )}
-                        </span>
-                        <span className={`badge ${isCorrect ? 'correct-badge' : (!userAnswered ? 'neutral-badge' : 'wrong-badge')}`}>
-                          {!userAnswered ? 'Sin respuesta' : (isCorrect ? 'Correcta' : 'Incorrecta')}
-                        </span>
+                        <span>Pregunta {globalIndex + 1}</span>
                       </div>
-                      <span className="answer-category">{answer.category_name}</span>
+                      <div className="status-icon">
+                        {!userAnswered ? (
+                          <FaTimesCircle className="icon-neutral" />
+                        ) : isCorrect ? (
+                          <FaCheckCircle className="icon-success" />
+                        ) : (
+                          <FaTimesCircle className="icon-error" />
+                        )}
+                      </div>
                     </div>
                     <h3 className="answer-question">{answer.question_text}</h3>
-                    <span className="expand-indicator">{isExpanded ? '▲ Ocultar detalle' : '▼ Ver detalle'}</span>
+                  </button>
+                  <button
+                    className="detail-button"
+                    onClick={() => toggleAnswerExpanded(answer.id)}
+                    type="button"
+                  >
+                    {isExpanded ? 'Ocultar detalle' : 'Ver detalle'}
                   </button>
 
                   {isExpanded && (
@@ -324,6 +338,31 @@ const Results = () => {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {showAnswers && answers.length > questionsPerPage && (
+          <div className="pagination">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="btn btn-secondary"
+            >
+              ← Anterior
+            </button>
+            
+            <span className="page-info">
+              Página {currentPage} de {Math.ceil(answers.length / questionsPerPage)}
+            </span>
+            
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(Math.ceil(answers.length / questionsPerPage), prev + 1))}
+              disabled={currentPage === Math.ceil(answers.length / questionsPerPage)}
+              className="btn btn-secondary"
+            >
+              Siguiente →
+            </button>
           </div>
         )}
       </div>

@@ -32,7 +32,12 @@ const Navbar = ({ quizMode = null }) => {
               <span className="brand-version">v0.4.2</span>
             </Link>
             {isAdmin && (
-              <Link to="/admin" className="navbar-link admin-link" title="Administración" aria-label="Administración">
+              <Link 
+                to="/admin" 
+                className={`navbar-link admin-link ${location.pathname === '/admin' ? 'active' : ''}`}
+                title="Administración" 
+                aria-label="Administración"
+              >
                 <FaCog />
                 <span className="nav-text">Admin</span>
               </Link>
@@ -40,18 +45,33 @@ const Navbar = ({ quizMode = null }) => {
               
             <div className="navbar-menu">
               <div className="navbar-menu-left">
-                <Link to="/dashboard" className="navbar-link" title="Inicio" aria-label="Inicio">
+                <Link 
+                  to="/dashboard" 
+                  className={`navbar-link ${location.pathname === '/dashboard' ? 'active' : ''}`}
+                  title="Inicio" 
+                  aria-label="Inicio"
+                >
                   <FaHome />
                   <span className="nav-text">Inicio</span>
                 </Link>
-                <Link to="/stats" className="navbar-link" title="Estadísticas" aria-label="Estadísticas">
+                <Link 
+                  to="/stats" 
+                  className={`navbar-link ${location.pathname === '/stats' ? 'active' : ''}`}
+                  title="Estadísticas" 
+                  aria-label="Estadísticas"
+                >
                   <FaChartBar />
                   <span className="nav-text">Estadísticas</span>
                 </Link>
               </div>
 
               <div className="navbar-menu-right">
-                <Link to="/profile" className="navbar-link" title="Perfil" aria-label="Perfil">
+                <Link 
+                  to="/profile" 
+                  className={`navbar-link ${location.pathname === '/profile' ? 'active' : ''}`}
+                  title="Perfil" 
+                  aria-label="Perfil"
+                >
                   <FaUser />
                   <span className="nav-text">Perfil</span>
                 </Link>
