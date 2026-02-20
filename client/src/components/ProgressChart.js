@@ -57,8 +57,9 @@ const ProgressChart = () => {
     // Calcular puntos para la línea
     const points = data.map((item, index) => {
       const x = (index / (data.length - 1 || 1)) * (chartWidth - padding.left - padding.right) + padding.left;
-      const y = chartHeight - padding.bottom - ((item.percentage - minScore) / (maxScore - minScore)) * (chartHeight - padding.top - padding.bottom);
-      return { x, y, percentage: item.percentage, date: item.date, count: item.count };
+      const percentage = parseFloat(item.percentage) || 0;
+      const y = chartHeight - padding.bottom - ((percentage - minScore) / (maxScore - minScore)) * (chartHeight - padding.top - padding.bottom);
+      return { x, y, percentage, date: item.date, count: item.count };
     });
 
     // Crear path para la línea
@@ -159,8 +160,8 @@ const ProgressChart = () => {
             >
               <div className="chart-tooltip">
                 <div className="tooltip-date">{formatDate(data[index].date)}</div>
-                <div className="tooltip-score">{point.percentage.toFixed(1)}%</div>
-                <div className="tooltip-count">{point.count} cuestionarios</div>
+                <div className="tooltip-score">{typeof point.percentage === 'number' ? point.percentage.toFixed(1) : '0.0'}%</div>
+                <div className="tooltip-count">{point.count || 0} cuestionarios</div>
               </div>
             </div>
           ))}
