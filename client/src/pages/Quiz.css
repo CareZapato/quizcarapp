@@ -5,18 +5,7 @@
   min-height: 100vh;
 }
 
-.quiz-header {
-  background: var(--white);
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 4px 6px var(--shadow);
-  gap: 20px;
-  flex-wrap: wrap;
-}
+/* quiz-header movido al navbar mediante portal */
 
 .quiz-progress {
   flex: 1;
@@ -193,15 +182,15 @@
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 4px 6px var(--shadow);
-  max-height: calc(100vh - 200px);
+  /* Altura fija: navbar (~70px) + navegación (~80px) = ~150px */
+  height: calc(100vh - 150px);
   overflow: hidden;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
 }
 
 .question-card {
-  margin-bottom: 0;
+  flex: 1;
   overflow-y: auto;
   min-height: 0;
   padding-right: 4px;
@@ -218,19 +207,19 @@
   color: var(--white);
   border-radius: 20px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 10px; /* Reducido de 14px */
 }
 
 .question-id {
   opacity: 0.85;
   font-weight: 500;
-  font-size: 13px;
+  font-size: 9px; /* Reducido de 13px */
 }
 
 .question-text {
   color: var(--dark);
-  font-size: 20px;
-  line-height: 1.4;
+  font-size: 11px; /* Reducido de 20px */
+  line-height: 1.3;
   margin-bottom: 16px;
   font-weight: 500;
 }
@@ -271,7 +260,7 @@
   background: var(--white);
   cursor: pointer;
   transition: all 0.3s ease;
-  font-size: 16px;
+  font-size: 10px; /* Reducido de 16px */
   text-align: left;
   position: relative;
 }
@@ -303,7 +292,7 @@
   background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
   border-left: 5px solid #f59e0b;
   border-radius: 8px;
-  font-size: 15px;
+  font-size: 10px; /* Reducido de 15px */
   color: #92400e;
   font-weight: 600;
   box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
@@ -314,7 +303,7 @@
 
 .multi-answer-indicator::before {
   content: "⚠️";
-  font-size: 20px;
+  font-size: 16px; /* Reducido de 20px */
 }
 
 .multi-answer-selected-info {
@@ -323,7 +312,7 @@
   background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
   border-left: 4px solid var(--info);
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 10px; /* Reducido de 14px */
   color: #1e40af;
   font-weight: 600;
   box-shadow: 0 2px 6px rgba(59, 130, 246, 0.15);
@@ -335,7 +324,7 @@
   background: #f3f4f6;
   border-left: 4px solid #9ca3af;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 10px; /* Reducido de 14px */
   color: #4b5563;
   font-weight: 600;
 }
@@ -346,14 +335,14 @@
   background: #dbeafe;
   border-left: 4px solid var(--info);
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 10px; /* Reducido de 14px */
   color: var(--dark);
   font-weight: 600;
 }
 
 .option-letter {
-  width: 40px;
-  height: 40px;
+  width: 28px; /* Reducido de 40px */
+  height: 28px; /* Reducido de 40px */
   border-radius: 50%;
   background: var(--primary);
   color: var(--white);
@@ -361,15 +350,15 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 18px;
+  font-size: 13px; /* Reducido de 18px */
   flex-shrink: 0;
 }
 
 .option-text {
   flex: 1;
-  font-size: 16px;
+  font-size: 10px; /* Reducido de 16px */
   color: var(--dark);
-  line-height: 1.5;
+  line-height: 1.3;
 }
 
 .check-icon {
@@ -421,6 +410,77 @@
 
 .dot.answered {
   background: var(--success);
+}
+
+/* Clases de tamaño de fuente personalizables */
+/* Por defecto: small (ya definido arriba) */
+
+/* Tamaño mediano */
+.quiz-container.font-size-medium .question-text {
+  font-size: 14px;
+}
+
+.quiz-container.font-size-medium .option-button {
+  font-size: 13px;
+}
+
+.quiz-container.font-size-medium .option-text {
+  font-size: 13px;
+}
+
+.quiz-container.font-size-medium .option-letter {
+  width: 32px;
+  height: 32px;
+  font-size: 15px;
+}
+
+.quiz-container.font-size-medium .question-number {
+  font-size: 12px;
+}
+
+.quiz-container.font-size-medium .question-id {
+  font-size: 11px;
+}
+
+.quiz-container.font-size-medium .multi-answer-indicator,
+.quiz-container.font-size-medium .multi-answer-selected-info,
+.quiz-container.font-size-medium .multi-answer-empty-info,
+.quiz-container.font-size-medium .multi-answer-info {
+  font-size: 12px;
+}
+
+/* Tamaño grande */
+.quiz-container.font-size-large .question-text {
+  font-size: 18px;
+}
+
+.quiz-container.font-size-large .option-button {
+  font-size: 16px;
+}
+
+.quiz-container.font-size-large .option-text {
+  font-size: 16px;
+}
+
+.quiz-container.font-size-large .option-letter {
+  width: 38px;
+  height: 38px;
+  font-size: 18px;
+}
+
+.quiz-container.font-size-large .question-number {
+  font-size: 14px;
+}
+
+.quiz-container.font-size-large .question-id {
+  font-size: 13px;
+}
+
+.quiz-container.font-size-large .multi-answer-indicator,
+.quiz-container.font-size-large .multi-answer-selected-info,
+.quiz-container.font-size-large .multi-answer-empty-info,
+.quiz-container.font-size-large .multi-answer-info {
+  font-size: 14px;
 }
 
 @media (min-width: 769px) {
@@ -588,7 +648,8 @@
 
   .quiz-content {
     padding: 10px;
-    max-height: calc(100vh - 145px);
+    /* Altura fija en móvil: navbar (~85px) + navegación fija (~60px) */
+    height: calc(100vh - 150px);
     border-radius: 10px;
   }
 
@@ -685,6 +746,7 @@
     align-items: center;
     gap: 8px;
     padding-top: 10px;
+    /* Navegación NO fija en desktop (solo sticky) */
     position: sticky;
     bottom: 0;
     background: var(--white);
@@ -748,7 +810,8 @@
 
   .quiz-content {
     padding: 8px;
-    max-height: calc(100vh - 132px);
+    /* Altura fija en móvil pequeño */
+    height: calc(100vh - 120px);
   }
 
   .question-text {
@@ -828,5 +891,124 @@
     font-size: 10px;
     line-height: 1.2;
     padding: 7px 8px;
+  }
+  
+  /* Mobile: Ajustes adicionales de padding */
+  .quiz-container {
+    padding: 5px;
+    padding-bottom: 65px; /* Espacio para navegación fija */
+  }
+  
+  .question-text {
+    font-size: 12px;
+    line-height: 1.3;
+    margin-bottom: 8px;
+  }
+  
+  .option-button {
+    padding: 6px 8px;
+    font-size: 10px;
+  }
+  
+  .option-text {
+    font-size: 10px;
+    line-height: 1.2;
+  }
+  
+  .option-letter {
+    width: 22px;
+    height: 22px;
+    font-size: 11px;
+  }
+  
+  .question-number {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+  
+  .multi-answer-indicator,
+  .multi-answer-selected-info,
+  .multi-answer-empty-info,
+  .multi-answer-info {
+    font-size: 10px;
+    padding: 6px 8px;
+  }
+  
+  .confirm-button {
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+  
+  .quiz-navigation .btn {
+    font-size: 10px;
+    padding: 8px 8px;
+    min-height: 36px;
+    min-width: 70px;
+  }
+  
+  .practice-info p {
+    font-size: 11px;
+  }
+  
+  /* Navegación FIJA en la parte inferior en móvil (768px) */
+  .quiz-navigation {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    background: white !important;
+    padding: 8px 6px !important;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15) !important;
+    z-index: 1000 !important;
+    display: grid !important;
+    grid-template-columns: auto 1fr auto !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin: 0 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .quiz-container {
+    padding: 5px;
+    padding-bottom: 60px; /* Espacio para navegación fija en móvil pequeño */
+  }
+  
+  .quiz-content {
+    /* Altura fija en móvil pequeño: navbar (~80px) + navegación fija (~55px) */
+    height: calc(100vh - 140px);
+  }
+  
+  /* FORZAR navegación fija también en 480px */
+  .quiz-navigation {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    background: white !important;
+    padding: 6px 4px !important;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15) !important;
+    z-index: 1000 !important;
+  }
+  
+  .question-text {
+    font-size: 11px;
+  }
+  
+  .option-button {
+    font-size: 9px;
+    padding: 5px 7px;
+  }
+  
+  .option-text {
+    font-size: 9px;
+  }
+  
+  .option-letter {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
   }
 }

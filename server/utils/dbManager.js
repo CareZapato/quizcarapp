@@ -45,6 +45,19 @@ async function seedData() {
   console.log('🌱 Insertando datos iniciales...');
 
   try {
+    // Insertar/actualizar estados de quiz (idempotente)
+    console.log('🏷️  Verificando estados de cuestionario...');
+    for (const status of SEED_DATA.quizStatuses || []) {
+      await dbRun(
+        `INSERT INTO quiz_statuses (code, name, description)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (code)
+         DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description`,
+        [status.code, status.name, status.description || null]
+      );
+    }
+    console.log('✅ Estados de cuestionario verificados');
+
     // Insertar categorías
     const categoriesEmpty = await isTableEmpty('categories');
     if (categoriesEmpty) {
@@ -171,6 +184,66 @@ async function verifyColumnTypes() {
   console.log('🔍 Verificando tipos de columnas...');
   
   try {
+    // Crear tabla de estados si no existe
+    await query(`
+      CREATE TABLE IF NOT EXISTS quiz_statuses (
+        id SERIAL PRIMARY KEY,
+        code VARCHAR(50) UNIQUE NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Insertar estados base si faltan
+    await query(`
+      INSERT INTO quiz_statuses (code, name, description)
+      VALUES
+        ('en_curso', 'En curso', 'Cuestionario en progreso, puede retomarse'),
+        ('terminado', 'Terminado', 'Cuestionario entregado y corregido'),
+        ('abandonado', 'Abandonado', 'Cuestionario abandonado por el usuario')
+      ON CONFLICT (code) DO NOTHING
+    `);
+
+    // Verificar y agregar status_id si no existe
+    const checkStatusId = await query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'quizzes' AND column_name = 'status_id'
+    `);
+
+    if (checkStatusId.rows.length === 0) {
+      console.log('⚠️  Agregando columna status_id en quizzes...');
+      await query('ALTER TABLE quizzes ADD COLUMN status_id INTEGER');
+      await query(`
+        ALTER TABLE quizzes
+        ADD CONSTRAINT quizzes_status_id_fkey
+        FOREIGN KEY (status_id) REFERENCES quiz_statuses(id)
+      `);
+      console.log('✅ Columna status_id agregada');
+    }
+
+    // Sincronizar status_id en registros existentes (solo si falta)
+    await query(`
+      UPDATE quizzes
+      SET status_id = CASE
+        WHEN completed = TRUE THEN (SELECT id FROM quiz_statuses WHERE code = 'terminado')
+        ELSE (SELECT id FROM quiz_statuses WHERE code = 'en_curso')
+      END
+      WHERE status_id IS NULL
+    `);
+
+    const inProgressStatus = await query(
+      "SELECT id FROM quiz_statuses WHERE code = 'en_curso' LIMIT 1"
+    );
+    const inProgressStatusId = inProgressStatus.rows[0]?.id;
+
+    // Asegurar NOT NULL + default a en_curso
+    if (inProgressStatusId) {
+      await query(`ALTER TABLE quizzes ALTER COLUMN status_id SET DEFAULT ${inProgressStatusId}`);
+      await query('ALTER TABLE quizzes ALTER COLUMN status_id SET NOT NULL');
+    }
+
     // Verificar correct_answer en questions
     const questionsCheck = await query(`
       SELECT data_type 
@@ -254,6 +327,52 @@ async function verifyColumnTypes() {
       `);
       console.log('✅ Columna has_multiple_answers agregada y datos actualizados');
     }
+
+    // Verificar y crear índice único para prevenir quizzes activos duplicados
+    const checkUniqueIndex = await query(`
+      SELECT indexname
+      FROM pg_indexes
+      WHERE tablename = 'quizzes' AND indexname = 'idx_unique_active_quiz_per_user'
+    `);
+
+    if (checkUniqueIndex.rows.length === 0) {
+      console.log('⚠️  Agregando índice único para prevenir quizzes activos duplicados...');
+      
+      // Obtener el status_id de 'en_curso'
+      const enCursoStatus = await query(
+        "SELECT id FROM quiz_statuses WHERE code = 'en_curso' LIMIT 1"
+      );
+      const enCursoStatusId = enCursoStatus.rows[0]?.id;
+      
+      if (enCursoStatusId) {
+        // Primero, limpiar cualquier quiz duplicado existente (mantener solo el más reciente)
+        await query(`
+          DELETE FROM quizzes
+          WHERE id IN (
+            SELECT q.id
+            FROM quizzes q
+            WHERE q.status_id = $1
+            AND q.id NOT IN (
+              SELECT MAX(q2.id)
+              FROM quizzes q2
+              WHERE q2.status_id = $1
+              GROUP BY q2.user_id
+            )
+          )
+        `, [enCursoStatusId]);
+        
+        // Crear índice único parcial
+        await query(`
+          CREATE UNIQUE INDEX idx_unique_active_quiz_per_user
+          ON quizzes (user_id, status_id)
+          WHERE status_id = $1
+        `, [enCursoStatusId]);
+        
+        console.log('✅ Índice único creado - Solo un quiz activo permitido por usuario');
+      } else {
+        console.log('⚠️  No se pudo obtener status_id para "en_curso", índice no creado');
+      }
+    }
     
     console.log('✅ Tipos de columnas y estructura verificados');
   } catch (error) {
@@ -267,7 +386,7 @@ export async function resetDatabase() {
   
   try {
     // Eliminar todas las tablas en orden inverso (por las FK)
-    const tables = ['user_progress', 'user_answers', 'quizzes', 'questions', 'categories', 'users'];
+    const tables = ['user_progress', 'user_answers', 'quizzes', 'quiz_statuses', 'questions', 'categories', 'users'];
     for (const tableName of tables) {
       await dbRun(`DROP TABLE IF EXISTS ${tableName} CASCADE`);
     }

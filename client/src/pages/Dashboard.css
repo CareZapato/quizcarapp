@@ -90,6 +90,9 @@
   padding: 24px;
   text-align: center;
   transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .mode-card:hover {
@@ -139,6 +142,11 @@
   color: #6b7280;
   margin-bottom: 20px;
   line-height: 1.5;
+  flex-grow: 1;
+}
+
+.mode-card .btn {
+  margin-top: auto;
 }
 
 /* Recent Quizzes */
@@ -194,14 +202,37 @@
   color: #065f46;
 }
 
+.quiz-badge.info {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
 .quiz-badge.danger {
   background: #fee2e2;
   color: #991b1b;
 }
 
+.quiz-badge.neutral {
+  background: #e5e7eb;
+  color: #374151;
+}
+
 .quiz-mode {
   font-weight: 600;
   color: var(--dark);
+}
+
+.quiz-result {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.quiz-result.success {
+  color: #065f46;
+}
+
+.quiz-result.danger {
+  color: #991b1b;
 }
 
 .quiz-date {
@@ -225,18 +256,232 @@
   font-size: 14px;
 }
 
+.quiz-score .quiz-metric {
+  display: block;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
 @media (max-width: 768px) {
+  .dashboard {
+    padding: 20px 12px;
+  }
+
+  .dashboard-header {
+    margin-bottom: 24px;
+  }
+
   .dashboard-header h1 {
-    font-size: 32px;
+    font-size: 28px;
+    margin-bottom: 8px;
+  }
+
+  .dashboard-header p {
+    font-size: 16px;
+  }
+
+  /* Stats Grid - 3 arriba, 2 abajo (minimalista) */
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    flex-direction: column;
+    padding: 12px 8px;
+    text-align: center;
+    gap: 8px;
+    border-radius: 10px;
+  }
+
+  .stat-card:nth-child(n+4) {
+    grid-column: span 1;
+  }
+
+  /* Hacer que el último elemento (Promedio) tome espacio centrado si hay 5 */
+  .stat-card:nth-child(5):last-child {
+    grid-column: 2 / 3;
+  }
+
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    border-radius: 8px;
+  }
+
+  .stat-info h3 {
+    font-size: 22px;
+    margin-bottom: 2px;
+  }
+
+  .stat-info p {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  /* Quiz Modes - Una columna en móvil */
+  .quiz-modes {
+    padding: 20px 16px;
+    margin-bottom: 24px;
+    border-radius: 12px;
+  }
+
+  .quiz-modes h2 {
+    font-size: 20px;
+    margin-bottom: 16px;
+  }
+
+  .modes-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .mode-card {
+    padding: 16px;
+  }
+
+  .mode-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+  }
+
+  .mode-card h3 {
+    font-size: 20px;
+    margin-bottom: 12px;
+  }
+
+  .mode-details {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+
+  .mode-details p {
+    font-size: 13px;
+    margin: 6px 0;
+  }
+
+  .mode-description {
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+
+  /* Recent Quizzes */
+  .recent-quizzes {
+    padding: 20px 16px;
+    border-radius: 12px;
+  }
+
+  .recent-quizzes h2 {
+    font-size: 20px;
+    margin-bottom: 16px;
+  }
+
+  .quiz-list {
+    gap: 12px;
   }
 
   .quiz-item {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
+    padding: 16px;
+  }
+
+  .quiz-info {
+    gap: 8px;
+    width: 100%;
+  }
+
+  .quiz-badge {
+    font-size: 12px;
+    padding: 4px 10px;
+  }
+
+  .quiz-mode {
+    font-size: 14px;
+  }
+
+  .quiz-date {
+    font-size: 12px;
+    width: 100%;
   }
 
   .quiz-score {
     text-align: left;
+    width: 100%;
+  }
+
+  .quiz-score strong {
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+
+  .quiz-score .quiz-metric {
+    font-size: 12px;
+  }
+
+  .quiz-item .btn {
+    width: 100%;
+    padding: 10px;
+    font-size: 14px;
+  }
+
+  /* Alert de quiz activo */
+  .alert {
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .alert button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Para pantallas muy pequeñas, ajustar todavía más */
+  .dashboard {
+    padding: 16px 10px;
+  }
+
+  .dashboard-header h1 {
+    font-size: 24px;
+  }
+
+  .dashboard-header p {
+    font-size: 14px;
+  }
+
+  .stats-grid {
+    gap: 8px;
+  }
+
+  .stat-card {
+    padding: 10px 6px;
+  }
+
+  .stat-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
+  .stat-info h3 {
+    font-size: 20px;
+  }
+
+  .stat-info p {
+    font-size: 10px;
+  }
+
+  .mode-card h3 {
+    font-size: 18px;
+  }
+
+  .mode-icon {
+    font-size: 32px;
   }
 }

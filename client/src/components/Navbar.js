@@ -1,13 +1,15 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FaUser, FaChartBar, FaSignOutAlt, FaCog, FaHome } from 'react-icons/fa';
 import './Navbar.css';
 
-const Navbar = () => {
+const Navbar = ({ quizMode = null }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const isAdmin = Boolean(user?.is_admin);
+  const isQuizPage = location.pathname === '/quiz';
 
   const handleLogout = () => {
     logout();
@@ -19,41 +21,51 @@ const Navbar = () => {
   }
 
   return (
-    <nav className="navbar">
+    <nav className={`navbar ${isQuizPage ? 'quiz-mode' : ''}`}>
       <div className="navbar-container">
-        <Link to="/dashboard" className="navbar-brand">
-          🚗 Test de Conducción
-        </Link>
-        {isAdmin && (
-          <Link to="/admin" className="navbar-link admin-link" title="Administración" aria-label="Administración">
-            <FaCog />
-            <span className="nav-text">Admin</span>
-          </Link>
-        )}
-          
-        <div className="navbar-menu">
-          <div className="navbar-menu-left">
-            <Link to="/dashboard" className="navbar-link" title="Inicio" aria-label="Inicio">
-              <FaHome />
-              <span className="nav-text">Inicio</span>
+        {!isQuizPage ? (
+          // Navbar normal
+          <>
+            <Link to="/dashboard" className="navbar-brand">
+              🚗 Test de Conducción
             </Link>
-            <Link to="/stats" className="navbar-link" title="Estadísticas" aria-label="Estadísticas">
-              <FaChartBar />
-              <span className="nav-text">Estadísticas</span>
-            </Link>
-          </div>
+            {isAdmin && (
+              <Link to="/admin" className="navbar-link admin-link" title="Administración" aria-label="Administración">
+                <FaCog />
+                <span className="nav-text">Admin</span>
+              </Link>
+            )}
+              
+            <div className="navbar-menu">
+              <div className="navbar-menu-left">
+                <Link to="/dashboard" className="navbar-link" title="Inicio" aria-label="Inicio">
+                  <FaHome />
+                  <span className="nav-text">Inicio</span>
+                </Link>
+                <Link to="/stats" className="navbar-link" title="Estadísticas" aria-label="Estadísticas">
+                  <FaChartBar />
+                  <span className="nav-text">Estadísticas</span>
+                </Link>
+              </div>
 
-          <div className="navbar-menu-right">
-            <div className="navbar-user" title={user.username} aria-label={`Usuario: ${user.username}`}>
-              <FaUser />
-              <span className="nav-text">{user.username}</span>
+              <div className="navbar-menu-right">
+                <div className="navbar-user" title={user.username} aria-label={`Usuario: ${user.username}`}>
+                  <FaUser />
+                  <span className="nav-text">{user.username}</span>
+                </div>
+                <button onClick={handleLogout} className="btn-logout" title="Salir" aria-label="Salir">
+                  <FaSignOutAlt />
+                  <span className="nav-text">Salir</span>
+                </button>
+              </div>
             </div>
-            <button onClick={handleLogout} className="btn-logout" title="Salir" aria-label="Salir">
-              <FaSignOutAlt />
-              <span className="nav-text">Salir</span>
-            </button>
+          </>
+        ) : (
+          // Navbar modo quiz - espacio para que Quiz.js inyecte los controles
+          <div id="quiz-navbar-controls" className="quiz-navbar-controls">
+            {/* Los controles del quiz se renderizarán aquí desde Quiz.js */}
           </div>
-        </div>
+        )}
       </div>
     </nav>
   );

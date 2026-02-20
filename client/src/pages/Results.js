@@ -8,6 +8,7 @@ const Results = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAnswers, setShowAnswers] = useState(true);
+  const [expandedAnswers, setExpandedAnswers] = useState(new Set());
   const [closing, setClosing] = useState(false);
   
   const { quizId } = useParams();
@@ -47,57 +48,24 @@ const Results = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const toggleAnswerExpanded = (answerId) => {
+    setExpandedAnswers(prev => {
+      const updated = new Set(prev);
+      if (updated.has(answerId)) {
+        updated.delete(answerId);
+      } else {
+        updated.add(answerId);
+      }
+      return updated;
+    });
+  };
+
   const handleClose = async () => {
     if (closing) return;
     
     setClosing(true);
-    
-    try {
-      // Obtener el quiz actual desde el servidor (igual que Dashboard)
-      const currentQuizRes = await axios.get('/quiz/current');
-      
-      if (!currentQuizRes.data.hasActiveQuiz) {
-        console.log('No hay quiz activo, navegando al dashboard...');
-        window.location.href = '/dashboard';
-        return;
-      }
-      
-      const currentQuizId = currentQuizRes.data.quiz.id;
-      console.log('Quiz activo en servidor:', currentQuizId);
-      console.log('Quiz desde URL:', quizId);
-      console.log('Enviando petición de cierre...');
-      
-      // Llamar al endpoint abandon para cerrar el quiz
-      const response = await axios.post('/quiz/abandon', {
-        quizId: currentQuizId
-      });
-      
-      console.log('Respuesta del servidor:', response.data);
-      console.log('Esperando que la base de datos complete la transacción...');
-      
-      // IMPORTANTE: Esperar para asegurar que la BD commitee la transacción
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // VERIFICAR que el quiz realmente fue eliminado
-      console.log('Verificando que el quiz fue eliminado...');
-      const verifyRes = await axios.get('/quiz/current');
-      console.log('Estado después de cerrar:', verifyRes.data);
-      
-      if (verifyRes.data.hasActiveQuiz) {
-        console.error('❌ ERROR: El quiz NO fue eliminado!');
-        alert('Error: No se pudo cerrar el cuestionario. Inténtalo desde el Dashboard.');
-        setClosing(false);
-        return;
-      }
-      
-      console.log('✅ Quiz eliminado exitosamente, navegando al dashboard...');
-      // Recargar la página completamente
-      window.location.href = '/dashboard';
-    } catch (error) {
-      console.error('Error al cerrar cuestionario:', error);
-      console.error('Detalles del error:', error.response?.data);
-      window.location.href = '/dashboard';
-    }
+
+    navigate('/dashboard');
   };
 
   if (loading) {
@@ -243,91 +211,102 @@ const Results = () => {
             {answers.map((answer, index) => {
               const isCorrect = answer.is_correct === true || answer.is_correct === 1;
               const userAnswered = answer.user_answer !== null && answer.user_answer !== '';
+              const isExpanded = expandedAnswers.has(answer.id);
               
               return (
                 <div key={answer.id} className={`answer-item ${isCorrect ? 'correct' : 'incorrect'} ${!userAnswered ? 'unanswered' : ''}`}>
-                  <div className="answer-header">
-                    <div className="answer-number">
-                      {!userAnswered ? (
-                        <FaTimesCircle style={{ color: '#9ca3af' }} />
-                      ) : isCorrect ? (
-                        <FaCheckCircle style={{ color: '#10b981' }} />
-                      ) : (
-                        <FaTimesCircle style={{ color: '#ef4444' }} />
-                      )}
-                      <span>
-                        Pregunta {index + 1}
-                        {answer.question_number && (
-                          <span className="question-id"> (Nº {answer.question_number})</span>
+                  <button
+                    className="answer-summary"
+                    onClick={() => toggleAnswerExpanded(answer.id)}
+                    type="button"
+                  >
+                    <div className="answer-header">
+                      <div className="answer-number">
+                        {!userAnswered ? (
+                          <FaTimesCircle style={{ color: '#9ca3af' }} />
+                        ) : isCorrect ? (
+                          <FaCheckCircle style={{ color: '#10b981' }} />
+                        ) : (
+                          <FaTimesCircle style={{ color: '#ef4444' }} />
                         )}
-                      </span>
-                      {answer.has_multiple_answers && (
-                        <span className="badge multi-badge">Múltiple</span>
-                      )}
+                        <span>
+                          Pregunta {index + 1}
+                          {answer.question_number && (
+                            <span className="question-id"> (Nº {answer.question_number})</span>
+                          )}
+                        </span>
+                        <span className={`badge ${isCorrect ? 'correct-badge' : (!userAnswered ? 'neutral-badge' : 'wrong-badge')}`}>
+                          {!userAnswered ? 'Sin respuesta' : (isCorrect ? 'Correcta' : 'Incorrecta')}
+                        </span>
+                      </div>
+                      <span className="answer-category">{answer.category_name}</span>
                     </div>
-                    <span className="answer-category">{answer.category_name}</span>
-                  </div>
+                    <h3 className="answer-question">{answer.question_text}</h3>
+                    <span className="expand-indicator">{isExpanded ? '▲ Ocultar detalle' : '▼ Ver detalle'}</span>
+                  </button>
 
-                  <h3 className="answer-question">{answer.question_text}</h3>
-
-                  {answer.image_url && (
-                    <div className="answer-image">
-                      <img src={answer.image_url} alt="Imagen de la pregunta" />
-                    </div>
-                  )}
-
-                  <div className="answer-options">
-                    {['A', 'B', 'C', 'D', 'E'].map(option => {
-                      const optionKey = `option_${option.toLowerCase()}`;
-                      const optionText = answer[optionKey];
-                      
-                      // No mostrar la opción si no tiene texto
-                      if (!optionText || optionText.trim() === '') {
-                        return null;
-                      }
-                      
-                      // Normalizar respuestas para comparación
-                      const correctAnswers = typeof answer.correct_answer === 'string'
-                        ? answer.correct_answer.split(',').map(a => a.trim())
-                        : [answer.correct_answer];
-                      
-                      const userAnswers = answer.user_answer 
-                        ? (typeof answer.user_answer === 'string'
-                            ? answer.user_answer.split(',').map(a => a.trim())
-                            : [answer.user_answer])
-                        : [];
-                      
-                      const isUserAnswer = userAnswers.includes(option);
-                      const isCorrectAnswer = correctAnswers.includes(option);
-                      
-                      let className = 'answer-option';
-                      if (isCorrectAnswer) className += ' correct-answer';
-                      if (isUserAnswer && !isCorrectAnswer) className += ' wrong-answer';
-                      if (isUserAnswer && isCorrectAnswer) className += ' user-correct';
-                      
-                      return (
-                        <div key={option} className={className}>
-                          <span className="option-letter">{option}</span>
-                          <span className="option-text">{optionText}</span>
-                          <div className="option-badges">
-                            {isCorrectAnswer && !isUserAnswer && <span className="badge correct-badge">✓ Correcta</span>}
-                            {isUserAnswer && !isCorrectAnswer && <span className="badge wrong-badge">✗ Tu respuesta</span>}
-                            {isUserAnswer && isCorrectAnswer && <span className="badge correct-user-badge">✓ Tu respuesta correcta</span>}
-                          </div>
+                  {isExpanded && (
+                    <div className="answer-detail">
+                      {answer.image_url && (
+                        <div className="answer-image">
+                          <img src={answer.image_url} alt="Imagen de la pregunta" />
                         </div>
-                      );
-                    })}
-                  </div>
+                      )}
 
-                  {!userAnswered && (
-                    <div className="alert alert-info">
-                      No respondiste esta pregunta
-                    </div>
-                  )}
+                      <div className="answer-options">
+                        {['A', 'B', 'C', 'D', 'E'].map(option => {
+                          const optionKey = `option_${option.toLowerCase()}`;
+                          const optionText = answer[optionKey];
+                          
+                          // No mostrar la opción si no tiene texto
+                          if (!optionText || optionText.trim() === '') {
+                            return null;
+                          }
+                          
+                          // Normalizar respuestas para comparación
+                          const correctAnswers = typeof answer.correct_answer === 'string'
+                            ? answer.correct_answer.split(',').map(a => a.trim())
+                            : [answer.correct_answer];
+                          
+                          const userAnswers = answer.user_answer 
+                            ? (typeof answer.user_answer === 'string'
+                                ? answer.user_answer.split(',').map(a => a.trim())
+                                : [answer.user_answer])
+                            : [];
+                          
+                          const isUserAnswer = userAnswers.includes(option);
+                          const isCorrectAnswer = correctAnswers.includes(option);
+                          
+                          let className = 'answer-option';
+                          if (isCorrectAnswer) className += ' correct-answer';
+                          if (isUserAnswer && !isCorrectAnswer) className += ' wrong-answer';
+                          if (isUserAnswer && isCorrectAnswer) className += ' user-correct';
+                          
+                          return (
+                            <div key={option} className={className}>
+                              <span className="option-letter">{option}</span>
+                              <span className="option-text">{optionText}</span>
+                              <div className="option-badges">
+                                {isCorrectAnswer && !isUserAnswer && <span className="badge correct-badge">✓ Correcta</span>}
+                                {isUserAnswer && !isCorrectAnswer && <span className="badge wrong-badge">✗ Tu respuesta</span>}
+                                {isUserAnswer && isCorrectAnswer && <span className="badge correct-user-badge">✓ Tu respuesta correcta</span>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
 
-                  {answer.explanation && (
-                    <div className="answer-explanation">
-                      <strong>Explicación:</strong> {answer.explanation}
+                      {!userAnswered && (
+                        <div className="alert alert-info">
+                          No respondiste esta pregunta
+                        </div>
+                      )}
+
+                      {answer.explanation && (
+                        <div className="answer-explanation">
+                          <strong>Explicación:</strong> {answer.explanation}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

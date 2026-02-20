@@ -179,6 +179,27 @@
   transition: all 0.3s ease;
 }
 
+.answer-summary {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+.answer-detail {
+  margin-top: 12px;
+}
+
+.expand-indicator {
+  display: inline-flex;
+  margin-top: 6px;
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 600;
+}
+
 .answer-item.correct {
   border-color: #10b981;
   background: #f0fdf4;
@@ -330,6 +351,11 @@
 
 .badge.correct-user-badge {
   background: #059669;
+  color: var(--white);
+}
+
+.badge.neutral-badge {
+  background: #9ca3af;
   color: var(--white);
 }
 

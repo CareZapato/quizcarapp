@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { FaClock, FaCheckCircle } from 'react-icons/fa';
@@ -17,10 +18,22 @@ const Quiz = () => {
   const [questionTimeLeft, setQuestionTimeLeft] = useState(60);
   const [loadingNext, setLoadingNext] = useState(false);
   const [abandoning, setAbandoning] = useState(false);
+  const [fontSize, setFontSize] = useState('small'); // 'small', 'medium', 'large'
   
   const navigate = useNavigate();
   const location = useLocation();
   const mode = location.state?.mode;
+  
+  const toggleFontSize = () => {
+    setFontSize(prev => {
+      if (prev === 'small') return 'medium';
+      if (prev === 'medium') return 'large';
+      return 'small';
+    });
+  };
+  
+  // Ref para prevenir doble llamada a /quiz/start (causado por React StrictMode)
+  const startQuizCalled = useRef(false);
 
   useEffect(() => {
     initQuiz();
@@ -119,9 +132,12 @@ const Quiz = () => {
           if (q.user_answer) {
             // Verificar si es multi-respuesta
             if (q.user_answer.includes(',')) {
-              answersObj[q.id] = q.user_answer.split(',').sort();
+              answersObj[q.id] = q.user_answer
+                .split(',')
+                .map(a => a.trim().toUpperCase())
+                .sort();
             } else {
-              answersObj[q.id] = q.user_answer;
+              answersObj[q.id] = q.user_answer.trim().toUpperCase();
             }
           }
         });
@@ -129,6 +145,13 @@ const Quiz = () => {
         setLoading(false);
       } else if (mode) {
         // Iniciar nuevo cuestionario
+        // Prevenir doble llamada causada por React StrictMode en desarrollo
+        if (startQuizCalled.current) {
+          console.log('⚠️  Llamada duplicada a /quiz/start prevenida');
+          return;
+        }
+        startQuizCalled.current = true;
+        
         console.log('Iniciando nuevo cuestionario con modo:', mode);
         const response = await axios.post('/quiz/start', { mode });
         console.log('Respuesta del servidor:', response.data);
@@ -315,83 +338,25 @@ const Quiz = () => {
 
   const handleAbandon = async () => {
     if (abandoning) return; // Prevenir múltiples clicks
-    
-    // En modo práctica, completar el quiz y mostrar resultados
-    if (isPracticeMode) {
-      if (!window.confirm('¿Deseas terminar la práctica y ver tus resultados?')) {
-        return;
-      }
-      
-      setSubmitting(true);
-      
-      try {
-        const timeTaken = quiz.timeLimit - timeLeft;
-        console.log('=== LLAMANDO A /quiz/complete (MODO PRÁCTICA) ===');
-        console.log('QuizId:', quiz.id);
-        console.log('TimeTaken:', timeTaken);
-        
-        await axios.post('/quiz/complete', {
-          quizId: quiz.id,
-          timeTaken
-        });
-        
-        console.log('Práctica completada exitosamente, navegando a resultados...');
-        navigate(`/results/${quiz.id}`);
-      } catch (error) {
-        console.error('Error al completar práctica:', error);
-        alert('Error al terminar la práctica');
-        setSubmitting(false);
-      }
-      return;
-    }
-    
+
     // Para otros modos, abandonar normalmente
-    if (!window.confirm('¿Estás seguro de que deseas abandonar este cuestionario? Perderás todo el progreso.')) {
+    if (!window.confirm('¿Estás seguro de que deseas abandonar este cuestionario? Se registrará como abandonado y volverás al inicio.')) {
       return;
     }
 
     setAbandoning(true);
     
     try {
-      // Obtener el quiz actual desde el servidor (igual que Dashboard)
-      const currentQuizRes = await axios.get('/quiz/current');
-      
-      if (!currentQuizRes.data.hasActiveQuiz) {
-        console.log('No hay quiz activo, navegando al dashboard...');
-        window.location.href = '/dashboard';
-        return;
-      }
-      
-      const currentQuizId = currentQuizRes.data.quiz.id;
-      console.log('Quiz activo en servidor:', currentQuizId);
-      console.log('Quiz en estado local:', quiz.id);
       console.log('Enviando petición de abandono...');
-      
+
       const response = await axios.post('/quiz/abandon', {
-        quizId: currentQuizId
+        quizId: quiz.id
       });
-      
+
       console.log('Respuesta del servidor:', response.data);
-      console.log('Esperando que la base de datos complete la transacción...');
-      
-      // IMPORTANTE: Esperar para asegurar que la BD commitee la transacción
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // VERIFICAR que el quiz realmente fue eliminado
-      console.log('Verificando que el quiz fue eliminado...');
-      const verifyRes = await axios.get('/quiz/current');
-      console.log('Estado después de abandonar:', verifyRes.data);
-      
-      if (verifyRes.data.hasActiveQuiz) {
-        console.error('❌ ERROR: El quiz NO fue eliminado!');
-        alert('Error: No se pudo abandonar el cuestionario. Inténtalo desde el Dashboard.');
-        setAbandoning(false);
-        return;
-      }
-      
-      console.log('✅ Quiz eliminado exitosamente, navegando al dashboard...');
-      // Recargar la página completamente para limpiar todo el estado
-      window.location.href = '/dashboard';
+
+      console.log('✅ Quiz abandonado, navegando al dashboard...');
+      navigate('/dashboard');
     } catch (error) {
       console.error('Error al abandonar cuestionario:', error);
       console.error('Detalles del error:', error.response?.data);
@@ -473,67 +438,81 @@ const Quiz = () => {
   }
 
   return (
-    <div className={`quiz-container ${hasLongContent ? 'dense-text-mode' : ''}`}>
-      {/* Header */}
-      <div className="quiz-header">
-        <div className="quiz-progress">
-          {isPracticeMode ? (
-            <>
-              <span>Pregunta {currentIndex + 1}</span>
-              <div className="practice-stats">
-                <span className="stat-correct">✓ {practiceStats.correct} correctas</span>
-                <span className="stat-total">📊 {practiceStats.total} respondidas</span>
-                {practiceStats.total > 0 && (
-                  <span className="stat-percentage">
-                    {((practiceStats.correct / practiceStats.total) * 100).toFixed(1)}% acierto
-                  </span>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              <span>Pregunta {currentIndex + 1} de {questions.length}</span>
-              <div className="progress-bar">
-                <div 
-                  className="progress-fill" 
-                  style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
-                />
-              </div>
-              <span>{getAnsweredCount()} respondidas</span>
-            </>
-          )}
-        </div>
-        
-        <div className="quiz-header-actions">
-          <button
-            className="btn btn-danger btn-small"
-            onClick={handleAbandon}
-            disabled={abandoning}
-            title="Abandonar cuestionario"
-          >
-            {abandoning ? '⏳ Saliendo...' : `✕ ${isPracticeMode ? 'Terminar Práctica' : 'Abandonar'}`}
-          </button>
-          
-          {!isPracticeMode && (
-            <button
-              className="btn btn-success btn-small"
-              onClick={handleSubmit}
-              disabled={submitting}
-              title="Terminar y entregar cuestionario"
-            >
-              {submitting ? 'Entregando...' : '✓ Entregar'}
-            </button>
-          )}
-          
-          <div className={`quiz-timer ${isPracticeMode ? 'practice-timer' : ''} ${timeLeft < 300 || questionTimeLeft < 10 ? 'warning' : ''}`}>
-            <FaClock />
-            <span>{isPracticeMode ? formatTime(questionTimeLeft) : formatTime(timeLeft)}</span>
+    <>
+      {/* Renderizar controles en el Navbar usando Portal */}
+      {typeof document !== 'undefined' && document.getElementById('quiz-navbar-controls') && ReactDOM.createPortal(
+        <div className="quiz-navbar-content">
+          <div className="quiz-navbar-info">
+            {isPracticeMode ? (
+              <>
+                <span className="quiz-label">Pregunta {currentIndex + 1}</span>
+                <div className="practice-stats-nav">
+                  <span className="stat-correct">✓ {practiceStats.correct}</span>
+                  <span className="stat-total">📊 {practiceStats.total}</span>
+                  {practiceStats.total > 0 && (
+                    <span className="stat-percentage">
+                      {((practiceStats.correct / practiceStats.total) * 100).toFixed(1)}%
+                    </span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <span className="quiz-label">Pregunta {currentIndex + 1}/{questions.length}</span>
+                <div className="progress-bar-nav">
+                  <div 
+                    className="progress-fill" 
+                    style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
+                  />
+                </div>
+                <span className="quiz-answered">{getAnsweredCount()}</span>
+              </>
+            )}
           </div>
-        </div>
-      </div>
+          
+          <div className="quiz-navbar-actions">
+            <button
+              className="btn btn-font-size btn-nav"
+              onClick={toggleFontSize}
+              title={`Tamaño de fuente: ${fontSize === 'small' ? 'Pequeño' : fontSize === 'medium' ? 'Mediano' : 'Grande'}`}
+            >
+              {fontSize === 'small' && <span style={{fontSize: '10px', fontWeight: 'bold'}}>Aa</span>}
+              {fontSize === 'medium' && <span style={{fontSize: '14px', fontWeight: 'bold'}}>Aa</span>}
+              {fontSize === 'large' && <span style={{fontSize: '18px', fontWeight: 'bold'}}>Aa</span>}
+            </button>
+            
+            <button
+              className="btn btn-danger btn-nav"
+              onClick={handleAbandon}
+              disabled={abandoning}
+              title="Abandonar cuestionario"
+            >
+              {abandoning ? '⏳' : `✕ ${isPracticeMode ? 'Terminar' : 'Abandonar'}`}
+            </button>
+            
+            {!isPracticeMode && (
+              <button
+                className="btn btn-success btn-nav"
+                onClick={handleSubmit}
+                disabled={submitting}
+                title="Terminar y entregar cuestionario"
+              >
+                {submitting ? '⏳' : '✓ Entregar'}
+              </button>
+            )}
+            
+            <div className={`quiz-timer-nav ${isPracticeMode ? 'practice' : ''} ${timeLeft < 300 || questionTimeLeft < 10 ? 'warning' : ''}`}>
+              <FaClock />
+              <span>{isPracticeMode ? formatTime(questionTimeLeft) : formatTime(timeLeft)}</span>
+            </div>
+          </div>
+        </div>,
+        document.getElementById('quiz-navbar-controls')
+      )}
 
-      {/* Question */}
-      <div className="quiz-content">
+      <div className={`quiz-container font-size-${fontSize} ${hasLongContent ? 'dense-text-mode' : ''}`}>
+        {/* Question */}
+        <div className="quiz-content">
         <div className="question-card">
           <div className="question-header">
             <span className="question-number">
@@ -684,6 +663,7 @@ const Quiz = () => {
         )}
       </div>
     </div>
+    </>
   );
 };
 

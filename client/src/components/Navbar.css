@@ -199,3 +199,242 @@
     border-radius: 9px;
   }
 }
+
+/* Quiz Mode Styles */
+.navbar.quiz-mode {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.quiz-navbar-controls {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.quiz-navbar-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  gap: 20px;
+  color: white;
+}
+
+.quiz-navbar-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.quiz-label {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.progress-bar-nav {
+  flex: 1;
+  max-width: 200px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar-nav .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4ade80 0%, #22c55e 100%);
+  transition: width 0.3s ease;
+}
+
+.quiz-answered {
+  font-size: 14px;
+  opacity: 0.9;
+  white-space: nowrap;
+}
+
+.practice-stats-nav {
+  display: flex;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.stat-correct,
+.stat-total,
+.stat-percentage {
+  white-space: nowrap;
+}
+
+.quiz-navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-nav {
+  padding: 8px 16px;
+  font-size: 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-nav:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn-nav:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-font-size {
+  background: rgba(255, 255, 255, 0.25) !important;
+  color: white !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  padding: 6px 12px !important;
+  min-width: 42px !important;
+  max-width: 42px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+}
+
+.btn-font-size:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.35) !important;
+}
+
+.quiz-timer-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
+}
+
+.quiz-timer-nav.warning {
+  background: #ef4444;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Mobile Quiz Mode */
+@media (max-width: 768px) {
+  .quiz-navbar-content {
+    flex-direction: column;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .quiz-navbar-info {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .quiz-label {
+    font-size: 12px;
+  }
+
+  .progress-bar-nav {
+    max-width: 100px;
+    height: 6px;
+  }
+
+  .quiz-answered {
+    font-size: 11px;
+  }
+
+  .practice-stats-nav {
+    gap: 8px;
+    font-size: 11px;
+  }
+
+  .quiz-navbar-actions {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .btn-nav {
+    padding: 6px 10px;
+    font-size: 11px;
+    flex: 1 1 auto;
+  }
+
+  .btn-font-size {
+    font-size: 16px !important;
+    padding: 6px 8px !important;
+    min-width: 38px !important;
+    max-width: 38px !important;
+    flex: 0 0 38px !important;
+  }
+
+  .quiz-timer-nav {
+    padding: 6px 10px;
+    font-size: 12px;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .quiz-navbar-content {
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .quiz-label {
+    font-size: 11px;
+  }
+
+  .progress-bar-nav {
+    max-width: 80px;
+    height: 5px;
+  }
+
+  .quiz-answered {
+    font-size: 10px;
+  }
+
+  .practice-stats-nav {
+    font-size: 10px;
+  }
+
+  .btn-nav {
+    padding: 5px 8px;
+    font-size: 10px;
+    flex: 1 1 auto;
+  }
+
+  .btn-font-size {
+    font-size: 14px !important;
+    padding: 5px 6px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+    flex: 0 0 34px !important;
+  }
+
+  .quiz-timer-nav {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+}

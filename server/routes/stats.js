@@ -1,29 +1,50 @@
 import express from 'express';
 import { dbAll, dbGet } from '../config/database.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { ensureQuizStatusSchema } from '../utils/quizStatusManager.js';
 
 const router = express.Router();
 
 // Obtener estadísticas generales del usuario
 router.get('/overview', authMiddleware, async (req, res) => {
   try {
+    await ensureQuizStatusSchema();
+
     const userId = req.userId;
 
     // Total de cuestionarios
     const totalQuizzes = await dbGet(
-      'SELECT COUNT(*) as count FROM quizzes WHERE user_id = $1 AND completed = TRUE',
+      `SELECT COUNT(*) as count
+       FROM quizzes q
+       JOIN quiz_statuses qs ON q.status_id = qs.id
+       WHERE q.user_id = $1 AND qs.code IN ('terminado', 'abandonado')`,
       [userId]
     );
 
     // Cuestionarios aprobados
     const passedQuizzes = await dbGet(
-      'SELECT COUNT(*) as count FROM quizzes WHERE user_id = $1 AND passed = TRUE',
+      `SELECT COUNT(*) as count
+       FROM quizzes q
+       JOIN quiz_statuses qs ON q.status_id = qs.id
+       WHERE q.user_id = $1 AND qs.code = 'terminado' AND q.passed = TRUE`,
+      [userId]
+    );
+
+    // Cuestionarios abandonados
+    const abandonedQuizzes = await dbGet(
+      `SELECT COUNT(*) as count
+       FROM quizzes q
+       JOIN quiz_statuses qs ON q.status_id = qs.id
+       WHERE q.user_id = $1 AND qs.code = 'abandonado'`,
       [userId]
     );
 
     // Promedio de puntuación
     const avgScore = await dbGet(
-      'SELECT AVG(score) as average FROM quizzes WHERE user_id = $1 AND completed = TRUE',
+      `SELECT AVG(q.score) as average
+       FROM quizzes q
+       JOIN quiz_statuses qs ON q.status_id = qs.id
+       WHERE q.user_id = $1 AND qs.code = 'terminado'`,
       [userId]
     );
 
@@ -62,18 +83,27 @@ router.get('/overview', authMiddleware, async (req, res) => {
     // Últimos 10 cuestionarios
     const recentQuizzes = await dbAll(
       `SELECT 
-        id,
-        mode,
-        total_questions,
-        correct_answers,
-        score,
-        passed,
-        time_taken,
-        started_at,
-        completed_at
-       FROM quizzes
-       WHERE user_id = $1 AND completed = TRUE
-       ORDER BY completed_at DESC
+        q.id,
+        q.mode,
+        q.total_questions,
+        q.correct_answers,
+        q.score,
+        q.passed,
+        q.time_taken,
+        q.started_at,
+        q.completed_at,
+        qs.code as status_code,
+        qs.name as status_name,
+        COALESCE(ua.answered_questions, 0) as answered_questions
+       FROM quizzes q
+       JOIN quiz_statuses qs ON q.status_id = qs.id
+       LEFT JOIN (
+         SELECT quiz_id, COUNT(*) FILTER (WHERE user_answer IS NOT NULL)::integer as answered_questions
+         FROM user_answers
+         GROUP BY quiz_id
+       ) ua ON ua.quiz_id = q.id
+       WHERE q.user_id = $1 AND qs.code IN ('terminado', 'abandonado')
+       ORDER BY q.completed_at DESC
        LIMIT 10`,
       [userId]
     );
@@ -82,7 +112,8 @@ router.get('/overview', authMiddleware, async (req, res) => {
       overview: {
         totalQuizzes: totalQuizzes.count,
         passedQuizzes: passedQuizzes.count,
-        failedQuizzes: totalQuizzes.count - passedQuizzes.count,
+        failedQuizzes: totalQuizzes.count - passedQuizzes.count - abandonedQuizzes.count,
+        abandonedQuizzes: abandonedQuizzes.count,
         averageScore: avgScore.average ? Math.round(avgScore.average * 100) / 100 : 0,
         totalQuestionsAnswered: totalQuestions.count,
         correctAnswers: correctAnswers.count,
@@ -102,31 +133,45 @@ router.get('/overview', authMiddleware, async (req, res) => {
 // Obtener historial completo de cuestionarios
 router.get('/history', authMiddleware, async (req, res) => {
   try {
+    await ensureQuizStatusSchema();
+
     const userId = req.userId;
     const { page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
 
     const quizzes = await dbAll(
       `SELECT 
-        id,
-        mode,
-        total_questions,
-        correct_answers,
-        score,
-        passed,
-        time_taken,
-        time_limit,
-        started_at,
-        completed_at
-       FROM quizzes
-       WHERE user_id = $1 AND completed = TRUE
-       ORDER BY completed_at DESC
+        q.id,
+        q.mode,
+        q.total_questions,
+        q.correct_answers,
+        q.score,
+        q.passed,
+        q.time_taken,
+        q.time_limit,
+        q.started_at,
+        q.completed_at,
+        qs.code as status_code,
+        qs.name as status_name,
+        COALESCE(ua.answered_questions, 0) as answered_questions
+       FROM quizzes q
+       JOIN quiz_statuses qs ON q.status_id = qs.id
+       LEFT JOIN (
+         SELECT quiz_id, COUNT(*) FILTER (WHERE user_answer IS NOT NULL)::integer as answered_questions
+         FROM user_answers
+         GROUP BY quiz_id
+       ) ua ON ua.quiz_id = q.id
+       WHERE q.user_id = $1 AND qs.code IN ('terminado', 'abandonado')
+       ORDER BY q.completed_at DESC
        LIMIT $2 OFFSET $3`,
       [userId, limit, offset]
     );
 
     const totalCount = await dbGet(
-      'SELECT COUNT(*) as count FROM quizzes WHERE user_id = $1 AND completed = TRUE',
+      `SELECT COUNT(*) as count
+       FROM quizzes q
+       JOIN quiz_statuses qs ON q.status_id = qs.id
+       WHERE q.user_id = $1 AND qs.code IN ('terminado', 'abandonado')`,
       [userId]
     );
 

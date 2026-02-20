@@ -18,6 +18,8 @@ const Dashboard = () => {
   const loadData = async () => {
     try {
       console.log('=== Dashboard loadData() iniciado ===');
+      setHasActiveQuiz(false);
+
       // Agregar timestamp para evitar caché
       const timestamp = Date.now();
       const [statsRes, currentQuizRes] = await Promise.all([
@@ -29,17 +31,35 @@ const Dashboard = () => {
       console.log('hasActiveQuiz:', currentQuizRes.data.hasActiveQuiz);
       
       setStats(statsRes.data);
-      setHasActiveQuiz(currentQuizRes.data.hasActiveQuiz);
+      setHasActiveQuiz(
+        Boolean(currentQuizRes.data?.hasActiveQuiz) &&
+        currentQuizRes.data?.quiz?.status === 'en_curso'
+      );
       console.log('=== Dashboard loadData() completado ===');
     } catch (error) {
       console.error('Error al cargar datos:', error);
+      setHasActiveQuiz(false);
     } finally {
       setLoading(false);
     }
   };
 
-  const startQuiz = (mode) => {
-    navigate('/quiz', { state: { mode } });
+  const startQuiz = async (mode) => {
+    try {
+      const currentQuizRes = await axios.get('/quiz/current?_t=' + Date.now());
+      const active = Boolean(currentQuizRes.data?.hasActiveQuiz) && currentQuizRes.data?.quiz?.status === 'en_curso';
+
+      if (active) {
+        setHasActiveQuiz(true);
+        alert('Ya tienes un cuestionario en curso. Debes continuarlo o abandonarlo antes de iniciar uno nuevo.');
+        return;
+      }
+
+      navigate('/quiz', { state: { mode } });
+    } catch (error) {
+      console.error('Error al validar cuestionario en curso:', error);
+      alert('No se pudo validar el estado del cuestionario. Inténtalo nuevamente.');
+    }
   };
 
   const continueQuiz = () => {
@@ -134,6 +154,16 @@ const Dashboard = () => {
           </div>
 
           <div className="stat-card">
+            <div className="stat-icon" style={{ background: '#e5e7eb' }}>
+              📴
+            </div>
+            <div className="stat-info">
+              <h3>{stats.overview.abandonedQuizzes || 0}</h3>
+              <p>Abandonados</p>
+            </div>
+          </div>
+
+          <div className="stat-card">
             <div className="stat-icon" style={{ background: '#fef3c7' }}>
               🎯
             </div>
@@ -219,25 +249,35 @@ const Dashboard = () => {
             {stats.recentQuizzes.slice(0, 5).map((quiz) => (
               <div key={quiz.id} className="quiz-item">
                 <div className="quiz-info">
-                  <span className={`quiz-badge ${quiz.passed ? 'success' : 'danger'}`}>
-                    {quiz.passed ? '✓ Aprobado' : '✗ Suspendido'}
+                  <span className={`quiz-badge ${quiz.status_code === 'abandonado' ? 'neutral' : 'info'}`}>
+                    {quiz.status_code === 'abandonado' ? '⏹ Abandonado' : '✓ Terminado'}
                   </span>
                   <span className="quiz-mode">
-                    {quiz.mode === 'real' ? 'Modo Real' : 'Modo Extenso'}
+                    {quiz.mode === 'real' && 'Modo Real'}
+                    {quiz.mode === 'extended' && 'Modo Extenso'}
+                    {quiz.mode === 'practice' && 'Modo Práctica'}
                   </span>
                   <span className="quiz-date">
-                    {new Date(quiz.completed_at).toLocaleDateString('es-ES')}
+                    {new Date(quiz.completed_at).toLocaleString('es-ES', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
                   </span>
                 </div>
                 <div className="quiz-score">
-                  <strong>{quiz.score ? quiz.score.toFixed(1) : '0.0'}%</strong>
-                  <span>{quiz.correct_answers}/{quiz.total_questions}</span>
+                  <strong>{quiz.status_code === 'abandonado' ? '--' : `${quiz.score ? quiz.score.toFixed(1) : '0.0'}%`}</strong>
+                  <span className="quiz-metric">Respondidas: {quiz.answered_questions || 0}/{quiz.total_questions}</span>
+                  <span className="quiz-metric">Correctas: {quiz.correct_answers}/{quiz.total_questions}</span>
                 </div>
                 <button 
                   onClick={() => navigate(`/results/${quiz.id}`)}
                   className="btn btn-outline"
+                  disabled={quiz.status_code === 'abandonado'}
                 >
-                  Ver Detalles
+                  {quiz.status_code === 'abandonado' ? 'Sin Revisión' : 'Ver Detalles'}
                 </button>
               </div>
             ))}

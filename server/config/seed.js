@@ -1,6 +1,12 @@
 // Datos iniciales de la aplicación (seed)
 
 export const SEED_DATA = {
+  quizStatuses: [
+    { code: 'en_curso', name: 'En curso', description: 'Cuestionario en progreso, puede retomarse' },
+    { code: 'terminado', name: 'Terminado', description: 'Cuestionario entregado y corregido' },
+    { code: 'abandonado', name: 'Abandonado', description: 'Cuestionario abandonado por el usuario' }
+  ],
+
   categories: [
     { id: 0, name: 'Indefinido', description: 'Categoría por defecto para preguntas sin categoría específica' },
     { id: 1, name: 'Señales de Tráfico', description: 'Señales de tráfico y señalización' },
@@ -71,11 +77,22 @@ export const TABLE_SCHEMAS = {
       FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
     )
   `,
+
+  quiz_statuses: `
+    CREATE TABLE IF NOT EXISTS quiz_statuses (
+      id SERIAL PRIMARY KEY,
+      code VARCHAR(50) UNIQUE NOT NULL,
+      name VARCHAR(100) NOT NULL,
+      description TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `,
   
   quizzes: `
     CREATE TABLE IF NOT EXISTS quizzes (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL,
+      status_id INTEGER,
       mode VARCHAR(50) NOT NULL,
       total_questions INTEGER NOT NULL,
       correct_answers INTEGER DEFAULT 0,
@@ -86,8 +103,9 @@ export const TABLE_SCHEMAS = {
       passed BOOLEAN DEFAULT FALSE,
       started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       completed_at TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (status_id) REFERENCES quiz_statuses(id)
+    );
   `,
   
   user_answers: `

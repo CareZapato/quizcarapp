@@ -1,6 +1,7 @@
 import express from 'express';
 import { dbAll, dbGet, dbRun } from '../config/database.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { ensureQuizStatusSchema } from '../utils/quizStatusManager.js';
 
 const router = express.Router();
 
@@ -25,6 +26,12 @@ const QUIZ_MODES = {
     passingScore: 85, // 85% para aprobar
     isInfinite: true
   }
+};
+
+const QUIZ_STATUS = {
+  IN_PROGRESS: 'en_curso',
+  FINISHED: 'terminado',
+  ABANDONED: 'abandonado'
 };
 
 // Función para seleccionar preguntas proporcionalmente de todas las categorías
@@ -82,8 +89,29 @@ async function selectProportionalQuestions(totalQuestions) {
 // Iniciar un nuevo cuestionario
 router.post('/start', authMiddleware, async (req, res) => {
   try {
+    await ensureQuizStatusSchema();
+
     const { mode } = req.body;
     const userId = req.userId;
+
+    // Evitar múltiples quizzes en curso para el mismo usuario
+    const existingInProgressQuiz = await dbGet(
+      `SELECT q.id
+       FROM quizzes q
+       JOIN quiz_statuses qs ON q.status_id = qs.id
+       WHERE q.user_id = $1 AND qs.code = $2
+       ORDER BY q.started_at DESC
+       LIMIT 1`,
+      [userId, QUIZ_STATUS.IN_PROGRESS]
+    );
+
+    if (existingInProgressQuiz) {
+      return res.status(409).json({
+        error: 'Ya tienes un cuestionario en curso. Continúa ese cuestionario o abandónalo.',
+        hasActiveQuiz: true,
+        quizId: existingInProgressQuiz.id
+      });
+    }
 
     let quizConfig;
     if (mode === 'practice') {
@@ -118,12 +146,36 @@ router.post('/start', authMiddleware, async (req, res) => {
     }
 
     // Crear el cuestionario (para modo infinito, total_questions es 0 inicialmente)
-    const quizResult = await dbRun(
-      `INSERT INTO quizzes (user_id, mode, total_questions, time_limit)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id`,
-      [userId, quizConfig.name, quizConfig.isInfinite ? 0 : quizConfig.totalQuestions, quizConfig.timeLimit]
-    );
+    let quizResult;
+    try {
+      quizResult = await dbRun(
+        `INSERT INTO quizzes (user_id, status_id, mode, total_questions, time_limit)
+         VALUES ($1, (SELECT id FROM quiz_statuses WHERE code = $2), $3, $4, $5)
+         RETURNING id`,
+        [userId, QUIZ_STATUS.IN_PROGRESS, quizConfig.name, quizConfig.isInfinite ? 0 : quizConfig.totalQuestions, quizConfig.timeLimit]
+      );
+    } catch (dbError) {
+      // Si error de unique constraint (código 23505), verificar si es por quiz duplicado
+      if (dbError.code === '23505' && dbError.constraint === 'idx_unique_active_quiz_per_user') {
+        console.warn('⚠️  Intento de crear quiz duplicado detectado por índice único');
+        const existing = await dbGet(
+          `SELECT q.id
+           FROM quizzes q
+           JOIN quiz_statuses qs ON q.status_id = qs.id
+           WHERE q.user_id = $1 AND qs.code = $2
+           LIMIT 1`,
+          [userId, QUIZ_STATUS.IN_PROGRESS]
+        );
+        if (existing) {
+          return res.status(409).json({
+            error: 'Ya tienes un cuestionario en curso.',
+            hasActiveQuiz: true,
+            quizId: existing.id
+          });
+        }
+      }
+      throw dbError;
+    }
 
     const quizId = quizResult.id;
 
@@ -167,12 +219,17 @@ router.post('/start', authMiddleware, async (req, res) => {
 // Guardar respuesta de una pregunta
 router.post('/answer', authMiddleware, async (req, res) => {
   try {
+    await ensureQuizStatusSchema();
+
     const { quizId, questionId, userAnswer } = req.body;
     const userId = req.userId;
 
     // Verificar que el cuestionario pertenece al usuario
     const quiz = await dbGet(
-      'SELECT * FROM quizzes WHERE id = $1 AND user_id = $2',
+      `SELECT q.*, qs.code AS status_code
+       FROM quizzes q
+       JOIN quiz_statuses qs ON q.status_id = qs.id
+       WHERE q.id = $1 AND q.user_id = $2`,
       [quizId, userId]
     );
 
@@ -180,7 +237,7 @@ router.post('/answer', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Cuestionario no encontrado' });
     }
 
-    if (quiz.completed) {
+    if (quiz.status_code !== QUIZ_STATUS.IN_PROGRESS) {
       return res.status(400).json({ error: 'El cuestionario ya fue completado' });
     }
 
@@ -242,17 +299,26 @@ router.post('/answer', authMiddleware, async (req, res) => {
 // Obtener siguiente pregunta para modo práctica
 router.post('/next-question', authMiddleware, async (req, res) => {
   try {
+    await ensureQuizStatusSchema();
+
     const { quizId } = req.body;
     const userId = req.userId;
 
     // Verificar que el cuestionario pertenece al usuario y es modo práctica
     const quiz = await dbGet(
-      'SELECT * FROM quizzes WHERE id = $1 AND user_id = $2 AND mode = $3',
+      `SELECT q.*, qs.code AS status_code
+       FROM quizzes q
+       JOIN quiz_statuses qs ON q.status_id = qs.id
+       WHERE q.id = $1 AND q.user_id = $2 AND q.mode = $3`,
       [quizId, userId, 'practice']
     );
 
     if (!quiz) {
       return res.status(404).json({ error: 'Cuestionario no encontrado o no es modo práctica' });
+    }
+
+    if (quiz.status_code !== QUIZ_STATUS.IN_PROGRESS) {
+      return res.status(400).json({ error: 'El cuestionario no está en curso' });
     }
 
     // Obtener IDs de preguntas ya respondidas
@@ -323,6 +389,8 @@ router.post('/next-question', authMiddleware, async (req, res) => {
 // Completar cuestionario
 router.post('/complete', authMiddleware, async (req, res) => {
   try {
+    await ensureQuizStatusSchema();
+
     const { quizId, timeTaken } = req.body;
     const userId = req.userId;
 
@@ -333,7 +401,10 @@ router.post('/complete', authMiddleware, async (req, res) => {
 
     // Verificar que el cuestionario pertenece al usuario
     const quiz = await dbGet(
-      'SELECT * FROM quizzes WHERE id = $1 AND user_id = $2',
+      `SELECT q.*, qs.code AS status_code
+       FROM quizzes q
+       JOIN quiz_statuses qs ON q.status_id = qs.id
+       WHERE q.id = $1 AND q.user_id = $2`,
       [quizId, userId]
     );
 
@@ -345,9 +416,12 @@ router.post('/complete', authMiddleware, async (req, res) => {
     console.log('Quiz ANTES de completar:', {
       id: quiz.id,
       mode: quiz.mode,
-      completed: quiz.completed,
-      completed_type: typeof quiz.completed
+      status: quiz.status_code
     });
+
+    if (quiz.status_code !== QUIZ_STATUS.IN_PROGRESS) {
+      return res.status(400).json({ error: 'Solo se puede finalizar un cuestionario en curso' });
+    }
 
     // Calcular resultados
     const correctAnswers = await dbGet(
@@ -389,24 +463,40 @@ router.post('/complete', authMiddleware, async (req, res) => {
     if (quiz.mode === 'practice') {
       const result = await dbRun(
         `UPDATE quizzes 
-         SET total_questions = $1, correct_answers = $2, score = $3, time_taken = $4, completed = TRUE, passed = $5, completed_at = CURRENT_TIMESTAMP
-         WHERE id = $6`,
-        [totalAnswered.count, correctCount, score, timeTaken, passed, quizId]
+         SET status_id = (SELECT id FROM quiz_statuses WHERE code = $1),
+             total_questions = $2,
+             correct_answers = $3,
+             score = $4,
+             time_taken = $5,
+             completed = TRUE,
+             passed = $6,
+             completed_at = CURRENT_TIMESTAMP
+         WHERE id = $7`,
+        [QUIZ_STATUS.FINISHED, totalAnswered.count, correctCount, score, timeTaken, passed, quizId]
       );
       console.log('UPDATE para modo práctica - Rows affected:', result.changes);
     } else {
       const result = await dbRun(
         `UPDATE quizzes 
-         SET correct_answers = $1, score = $2, time_taken = $3, completed = TRUE, passed = $4, completed_at = CURRENT_TIMESTAMP
-         WHERE id = $5`,
-        [correctCount, score, timeTaken, passed, quizId]
+         SET status_id = (SELECT id FROM quiz_statuses WHERE code = $1),
+             correct_answers = $2,
+             score = $3,
+             time_taken = $4,
+             completed = TRUE,
+             passed = $5,
+             completed_at = CURRENT_TIMESTAMP
+         WHERE id = $6`,
+        [QUIZ_STATUS.FINISHED, correctCount, score, timeTaken, passed, quizId]
       );
       console.log('UPDATE para modo normal/extended - Rows affected:', result.changes);
     }
 
     // Verificar que se actualizó correctamente
     const updatedQuiz = await dbGet(
-      'SELECT id, mode, completed, score, passed, completed_at FROM quizzes WHERE id = $1',
+      `SELECT q.id, q.mode, q.completed, q.score, q.passed, q.completed_at, qs.code as status
+       FROM quizzes q
+       JOIN quiz_statuses qs ON q.status_id = qs.id
+       WHERE q.id = $1`,
       [quizId]
     );
     console.log('Quiz DESPUÉS de completar:', updatedQuiz);
@@ -454,6 +544,8 @@ router.post('/complete', authMiddleware, async (req, res) => {
 // Abandonar cuestionario
 router.post('/abandon', authMiddleware, async (req, res) => {
   try {
+    await ensureQuizStatusSchema();
+
     const { quizId } = req.body;
     const userId = req.userId;
 
@@ -461,63 +553,58 @@ router.post('/abandon', authMiddleware, async (req, res) => {
     console.log('QuizId recibido:', quizId);
     console.log('UserId:', userId);
 
-    // CAMBIO: Eliminar TODOS los quizzes incompletos del usuario, no solo uno
-    // Esto soluciona el problema de múltiples quizzes activos
-    console.log('Buscando TODOS los quizzes incompletos del usuario...');
-    
-    const allIncompleteQuizzes = await dbAll(
-      'SELECT id FROM quizzes WHERE user_id = $1 AND completed = FALSE',
-      [userId]
-    );
-    
-    console.log('Quizzes incompletos encontrados:', allIncompleteQuizzes.length);
-    allIncompleteQuizzes.forEach(q => console.log('  - Quiz ID:', q.id));
+    // Buscar quiz en curso a abandonar (el indicado o el más reciente)
+    let targetQuiz;
+    if (quizId) {
+      targetQuiz = await dbGet(
+        `SELECT q.id
+         FROM quizzes q
+         JOIN quiz_statuses qs ON q.status_id = qs.id
+         WHERE q.id = $1 AND q.user_id = $2 AND qs.code = $3`,
+        [quizId, userId, QUIZ_STATUS.IN_PROGRESS]
+      );
+    }
 
-    if (allIncompleteQuizzes.length === 0) {
-      console.log('✅ No hay quizzes incompletos para eliminar');
+    if (!targetQuiz) {
+      targetQuiz = await dbGet(
+        `SELECT q.id
+         FROM quizzes q
+         JOIN quiz_statuses qs ON q.status_id = qs.id
+         WHERE q.user_id = $1 AND qs.code = $2
+         ORDER BY q.started_at DESC
+         LIMIT 1`,
+        [userId, QUIZ_STATUS.IN_PROGRESS]
+      );
+    }
+
+    if (!targetQuiz) {
+      console.log('✅ No hay quiz en curso para abandonar');
       return res.json({
         message: 'No hay quizzes activos',
         deleted: false
       });
     }
 
-    // Usar transacción para eliminar todos los quizzes incompletos
-    const pool = (await import('../config/database.js')).default;
-    const client = await pool.connect();
-    
-    try {
-      await client.query('BEGIN');
-      
-      // Eliminar las respuestas de TODOS los quizzes incompletos
-      const deleteAnswers = await client.query(
-        'DELETE FROM user_answers WHERE quiz_id IN (SELECT id FROM quizzes WHERE user_id = $1 AND completed = FALSE)',
-        [userId]
-      );
-      console.log('Respuestas eliminadas:', deleteAnswers.rowCount);
-      
-      // Eliminar TODOS los quizzes incompletos del usuario
-      const deleteQuizzes = await client.query(
-        'DELETE FROM quizzes WHERE user_id = $1 AND completed = FALSE',
-        [userId]
-      );
-      console.log('Cuestionarios eliminados:', deleteQuizzes.rowCount);
-      
-      await client.query('COMMIT');
-      console.log('✅ Transacción completada - todos los quizzes incompletos eliminados');
-      console.log('=== FIN ABANDONO ===');
-      
-      res.json({
-        message: 'Todos los cuestionarios incompletos eliminados exitosamente',
-        deleted: true,
-        count: deleteQuizzes.rowCount
-      });
-    } catch (error) {
-      await client.query('ROLLBACK');
-      console.error('❌ Error en transacción, haciendo rollback:', error);
-      throw error;
-    } finally {
-      client.release();
-    }
+    const result = await dbRun(
+      `UPDATE quizzes
+       SET status_id = (SELECT id FROM quiz_statuses WHERE code = $1),
+           completed = TRUE,
+           completed_at = CURRENT_TIMESTAMP,
+           passed = FALSE,
+           score = COALESCE(score, 0)
+       WHERE id = $2 AND user_id = $3`,
+      [QUIZ_STATUS.ABANDONED, targetQuiz.id, userId]
+    );
+
+    console.log('Quizzes actualizados como abandonados:', result.changes);
+    console.log('=== FIN ABANDONO ===');
+
+    res.json({
+      message: 'Cuestionario abandonado exitosamente',
+      deleted: true,
+      count: result.changes,
+      quizId: targetQuiz.id
+    });
   } catch (error) {
     console.error('❌ Error al abandonar cuestionario:', error);
     res.status(500).json({ error: 'Error al abandonar cuestionario' });
@@ -527,12 +614,17 @@ router.post('/abandon', authMiddleware, async (req, res) => {
 // Obtener resultados detallados de un cuestionario
 router.get('/:quizId/results', authMiddleware, async (req, res) => {
   try {
+    await ensureQuizStatusSchema();
+
     const { quizId } = req.params;
     const userId = req.userId;
 
     // Verificar que el cuestionario pertenece al usuario
     const quiz = await dbGet(
-      'SELECT * FROM quizzes WHERE id = $1 AND user_id = $2',
+      `SELECT q.*, qs.code AS status_code
+       FROM quizzes q
+       JOIN quiz_statuses qs ON q.status_id = qs.id
+       WHERE q.id = $1 AND q.user_id = $2`,
       [quizId, userId]
     );
 
@@ -540,7 +632,7 @@ router.get('/:quizId/results', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Cuestionario no encontrado' });
     }
 
-    if (!quiz.completed) {
+    if (quiz.status_code !== QUIZ_STATUS.FINISHED) {
       return res.status(400).json({ error: 'El cuestionario no ha sido completado' });
     }
 
@@ -577,6 +669,7 @@ router.get('/:quizId/results', authMiddleware, async (req, res) => {
     res.json({
       quiz: {
         id: quiz.id,
+        status: quiz.status_code,
         mode: quiz.mode,
         totalQuestions: quiz.total_questions,
         correctAnswers: quiz.correct_answers,
@@ -598,6 +691,8 @@ router.get('/:quizId/results', authMiddleware, async (req, res) => {
 // Obtener cuestionario en progreso
 router.get('/current', authMiddleware, async (req, res) => {
   try {
+    await ensureQuizStatusSchema();
+
     // Deshabilitar caché para este endpoint
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.set('Pragma', 'no-cache');
@@ -610,30 +705,34 @@ router.get('/current', authMiddleware, async (req, res) => {
     
     // Primero ver TODOS los quizzes del usuario para debug
     const allQuizzes = await dbAll(
-      `SELECT id, mode, completed, started_at, completed_at FROM quizzes 
-       WHERE user_id = $1 
+      `SELECT q.id, q.mode, q.completed, q.started_at, q.completed_at, qs.code as status
+       FROM quizzes q
+       JOIN quiz_statuses qs ON q.status_id = qs.id
+       WHERE q.user_id = $1
        ORDER BY started_at DESC`,
       [userId]
     );
     console.log('Todos los quizzes del usuario:', allQuizzes);
 
     const quiz = await dbGet(
-      `SELECT * FROM quizzes 
-       WHERE user_id = $1 AND completed = FALSE 
-       ORDER BY started_at DESC 
+      `SELECT q.*, qs.code AS status_code
+       FROM quizzes q
+       JOIN quiz_statuses qs ON q.status_id = qs.id
+       WHERE q.user_id = $1 AND qs.code = $2 AND q.completed = FALSE
+       ORDER BY q.started_at DESC
        LIMIT 1`,
-      [userId]
+      [userId, QUIZ_STATUS.IN_PROGRESS]
     );
 
     if (!quiz) {
-      console.log('✅ No hay quiz activo (completed=FALSE)');
+      console.log('✅ No hay quiz activo (status=en_curso)');
       return res.json({ hasActiveQuiz: false });
     }
     
     console.log('⚠️  Quiz activo encontrado:', {
       id: quiz.id,
       mode: quiz.mode,
-      completed: quiz.completed,
+      status: quiz.status_code,
       started_at: quiz.started_at,
       completed_at: quiz.completed_at
     });
@@ -671,6 +770,7 @@ router.get('/current', authMiddleware, async (req, res) => {
       hasActiveQuiz: true,
       quiz: {
         id: quiz.id,
+        status: quiz.status_code,
         mode: quiz.mode,
         totalQuestions: quiz.total_questions,
         timeLimit: quiz.time_limit,

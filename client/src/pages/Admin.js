@@ -466,9 +466,47 @@ const Admin = () => {
     }
   };
 
+  const handleImportFileSelect = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.json')) {
+      alert('⚠️ Por favor selecciona un archivo .json válido');
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      setJsonInput(text);
+      alert('✅ Archivo cargado correctamente. Presiona "Importar Preguntas" para continuar.');
+    } catch (error) {
+      console.error('Error al leer archivo:', error);
+      alert('❌ Error al leer el archivo. Asegúrate de que sea un archivo válido.');
+    }
+  };
+
+  const handleBackupFileSelect = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.json')) {
+      alert('⚠️ Por favor selecciona un archivo .json válido');
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      setBackupJsonInput(text);
+      alert('✅ Archivo de backup cargado correctamente.');
+    } catch (error) {
+      console.error('Error al leer archivo:', error);
+      alert('❌ Error al leer el archivo de backup.');
+    }
+  };
+
   const handleRestoreBackup = async () => {
     if (!backupJsonInput.trim()) {
-      alert('⚠️ Por favor pega el JSON del backup antes de restaurar.');
+      alert('⚠️ Por favor carga un archivo de backup o pega el JSON antes de restaurar.');
       return;
     }
 
@@ -662,10 +700,23 @@ const Admin = () => {
                   <span>Se perderán todas las preguntas actuales</span>
                 </div>
                 
+                <div className="file-upload-section">
+                  <label className="file-upload-label backup-file-label">
+                    📁 Seleccionar archivo de backup (.json)
+                    <input
+                      type="file"
+                      accept=".json,application/json"
+                      onChange={handleBackupFileSelect}
+                      className="file-input"
+                    />
+                  </label>
+                  <span className="file-upload-hint">o pega el JSON abajo</span>
+                </div>
+
                 <textarea
                   value={backupJsonInput}
                   onChange={(e) => setBackupJsonInput(e.target.value)}
-                  placeholder="Pega aquí el contenido del archivo de backup (JSON)..."
+                  placeholder="Pega aquí el contenido del archivo de backup o carga un archivo usando el botón de arriba..."
                   className="backup-textarea"
                 />
                 
@@ -720,10 +771,24 @@ const Admin = () => {
   }
 ]`}</pre>
           </div>
+          
+          <div className="file-upload-section">
+            <label className="file-upload-label">
+              📁 Seleccionar archivo .json
+              <input
+                type="file"
+                accept=".json,application/json"
+                onChange={handleImportFileSelect}
+                className="file-input"
+              />
+            </label>
+            <span className="file-upload-hint">o pega el JSON abajo</span>
+          </div>
+
           <textarea
             value={jsonInput}
             onChange={(e) => setJsonInput(e.target.value)}
-            placeholder="Pega aquí tu JSON..."
+            placeholder="Pega aquí tu JSON o carga un archivo usando el botón de arriba..."
             rows="15"
             className="json-input"
           />
