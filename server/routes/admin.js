@@ -754,4 +754,100 @@ router.post('/import-full', authMiddleware, adminMiddleware, async (req, res) =>
   }
 });
 
+// Obtener JSON base (preguntas-backup-base.json)
+router.get('/base-backup', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const baseBackupPath = path.join(__dirname, '../config/preguntas-backup-base.json');
+    const baseBackupContent = await fs.readFile(baseBackupPath, 'utf8');
+    res.json(JSON.parse(baseBackupContent));
+  } catch (error) {
+    console.error('Error al obtener JSON base:', error);
+    res.status(500).json({ error: 'Error al cargar el JSON base: ' + error.message });
+  }
+});
+
+// Restaurar desde JSON base
+router.post('/restore-base', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    console.log('\n🔄 ============ INICIANDO RESTAURACIÓN DESDE JSON BASE ============\n');
+
+    // Leer el archivo JSON base
+    const baseBackupPath = path.join(__dirname, '../config/preguntas-backup-base.json');
+    const baseBackupContent = await fs.readFile(baseBackupPath, 'utf8');
+    const backupData = JSON.parse(baseBackupContent);
+
+    if (!backupData.questions || !Array.isArray(backupData.questions)) {
+      return res.status(400).json({ error: 'El archivo no tiene un formato válido' });
+    }
+
+    // 1. Limpiar base de datos (eliminar todas las preguntas y quizzes)
+    console.log('🗑️  Eliminando registros existentes...');
+    await dbRun('DELETE FROM user_answers');
+    await dbRun('DELETE FROM quizzes');
+    await dbRun('DELETE FROM questions');
+    
+    // Si hay categorías en el backup, también limpiar y restaurar categorías
+    if (backupData.categories && Array.isArray(backupData.categories)) {
+      await dbRun('DELETE FROM categories');
+      
+      for (const cat of backupData.categories) {
+        await dbRun(
+          `INSERT INTO categories (id, name, description) VALUES ($1, $2, $3)`,
+          [cat.id, cat.name, cat.description || null]
+        );
+      }
+      console.log(`✅ ${backupData.categories.length} categorías restauradas`);
+    }
+
+    // 2. Insertar las preguntas del JSON base
+    let importedCount = 0;
+    const errors = [];
+
+    for (const q of backupData.questions) {
+      try {
+        await dbRun(
+          `INSERT INTO questions (question_number, question_text, option_a, option_b, option_c, 
+                                 option_d, option_e, correct_answer, explanation, category_id, 
+                                 difficulty, needs_image, image_url)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          [
+            q.question_number || null,
+            q.question_text,
+            q.option_a,
+            q.option_b,
+            q.option_c,
+            q.option_d || null,
+            q.option_e || null,
+            q.correct_answer,
+            q.explanation || null,
+            q.category_id || 0,
+            q.difficulty || 1,
+            q.needs_image || false,
+            q.image_url || null
+          ]
+        );
+        importedCount++;
+      } catch (error) {
+        console.error(`❌ Error al importar pregunta ${q.question_number}:`, error.message);
+        errors.push({ question_number: q.question_number, error: error.message });
+      }
+    }
+
+    console.log(`\n✅ ============ RESTAURACIÓN COMPLETADA ============`);
+    console.log(`📊 Preguntas restauradas: ${importedCount}`);
+    console.log(`❌ Errores: ${errors.length}`);
+    console.log(`===============================================\n`);
+
+    res.json({
+      success: true,
+      message: `Base de datos restaurada: ${importedCount} preguntas del JSON base`,
+      importedCount,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (error) {
+    console.error('Error en restauración desde JSON base:', error);
+    res.status(500).json({ error: 'Error al restaurar desde JSON base: ' + error.message });
+  }
+});
+
 export default router;

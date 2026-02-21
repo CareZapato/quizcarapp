@@ -1,6 +1,6 @@
 {
   "name": "test-conduccion-web",
-  "version": "0.4.3",
+  "version": "0.4.5",
   "description": "Plataforma web para cuestionarios de conducción teóricos",
   "main": "server/index.js",
   "type": "module",

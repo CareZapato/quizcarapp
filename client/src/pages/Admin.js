@@ -389,6 +389,12 @@ const Admin = () => {
     return issues;
   };
 
+  const getCategoryNameById = (categoryId) => {
+    if (!categories || categories.length === 0) return 'Sin categoría';
+    const cat = categories.find(c => c.id === categoryId);
+    return cat ? cat.name : 'Sin categoría';
+  };
+
   // Pagination
   const indexOfLastQuestion = currentPage * questionsPerPage;
   const indexOfFirstQuestion = indexOfLastQuestion - questionsPerPage;
@@ -504,6 +510,37 @@ const Admin = () => {
     }
   };
 
+  const handleRestoreBaseBackup = async () => {
+    if (!window.confirm('⚠️ ADVERTENCIA: Esta operación cargará el JSON BASE y eliminará TODA la base de datos actual.\n\nSe reemplazará con las 323 preguntas del archivo base.\n\n¿Estás seguro de continuar?')) {
+      return;
+    }
+
+    try {
+      setImporting(true);
+      
+      const response = await axios.post('/admin/restore-base');
+      
+      const importedCount = response.data.importedCount || 0;
+      const errorCount = response.data.errors?.length || 0;
+      
+      let message = `✅ Base de datos restaurada desde JSON BASE!\n\n`;
+      message += `📝 ${importedCount} preguntas restauradas\n`;
+      if (errorCount > 0) {
+        message += `\n❌ ${errorCount} preguntas con errores (ver consola)`;
+        console.error('Errores:', response.data.errors);
+      }
+      
+      alert(message);
+      setBackupJsonInput('');
+      await loadData();
+    } catch (error) {
+      console.error('Error al restaurar JSON base:', error);
+      alert('❌ Error al restaurar desde JSON base: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const handleRestoreBackup = async () => {
     if (!backupJsonInput.trim()) {
       alert('⚠️ Por favor carga un archivo de backup o pega el JSON antes de restaurar.');
@@ -576,7 +613,7 @@ const Admin = () => {
               if (viewMode === 'list') loadQuestionsMap();
             }}
           >
-            {viewMode === 'list' ? '🗺️ Ver Mapa de Imágenes' : '📋 Ver Lista'}
+            {viewMode === 'list' ? '🗺️ Mapa de Preguntas' : '📋 Ver Lista'}
           </button>
           <button
             className="btn btn-info btn-small"
@@ -661,6 +698,30 @@ const Admin = () => {
             </div>
             
             <div className="backup-grid">
+              {/* Carga Backup Base */}
+              <div className="backup-box primary">
+                <div className="backup-box-icon base">📚</div>
+                <h3>Cargar JSON Base</h3>
+                <p className="backup-description">
+                  <strong>🔄 RESETEO COMPLETO:</strong> Esta operación cargará las 323 preguntas base del sistema y eliminará toda la base de datos actual.
+                </p>
+                <div className="backup-info">
+                  <FaCheckCircle className="info-icon" />
+                  <span>323 preguntas base del sistema</span>
+                </div>
+                <div className="backup-warning">
+                  <FaExclamationTriangle className="warning-icon" />
+                  <span>Elimina todas las preguntas actuales</span>
+                </div>
+                <button
+                  className="btn btn-primary btn-large"
+                  onClick={handleRestoreBaseBackup}
+                  disabled={importing}
+                >
+                  {importing ? '⏳ Cargando...' : '📚 Cargar JSON Base (323 preguntas)'}
+                </button>
+              </div>
+
               {/* Exportar Backup */}
               <div className="backup-box">
                 <div className="backup-box-icon export">📤</div>
@@ -957,6 +1018,12 @@ const Admin = () => {
                     </div>
                     
                     <div className="grid-item-info">
+                      <div className="info-badge category">
+                        <span className="info-icon">🏷️</span>
+                        <span className="info-text">
+                          {getCategoryNameById((fullQuestion && fullQuestion.category_id) || q.category_id)}
+                        </span>
+                      </div>
                       <div className="info-badge">
                         <span className="info-icon">🔤</span>
                         <span className="info-text">{optionsCount} opciones</span>
