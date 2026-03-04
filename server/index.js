@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import os from 'os';
+import fs from 'fs/promises';
 
 // Importar rutas
 import authRoutes from './routes/auth.js';
@@ -145,6 +146,11 @@ app.use((err, req, res, next) => {
 // Verificar e inicializar base de datos antes de iniciar el servidor
 async function startServer() {
   try {
+    // Garantizar que el directorio uploads existe (en Render el FS es efímero)
+    const uploadsDir = path.join(__dirname, '../uploads');
+    await fs.mkdir(uploadsDir, { recursive: true });
+    console.log(`📁 Directorio uploads: ${uploadsDir}`);
+
     // Verificar y restaurar BD si es necesario
     await verifyAndRestoreDatabase();
 

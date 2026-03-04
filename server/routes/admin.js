@@ -27,10 +27,18 @@ const adminMiddleware = async (req, res, next) => {
   }
 };
 
+const UPLOADS_DIR = path.join(__dirname, '../../uploads');
+
+// Garantizar que el directorio uploads existe antes de cada subida
+const ensureUploadsDir = async () => {
+  await fs.mkdir(UPLOADS_DIR, { recursive: true });
+};
+
 // Configuración de multer para subir imágenes
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../../uploads'));
+  destination: async (req, file, cb) => {
+    try { await ensureUploadsDir(); } catch (e) { /* ya existe */ }
+    cb(null, UPLOADS_DIR);
   },
   filename: (req, file, cb) => {
     // El nombre se establecerá después en el endpoint con el ID de la pregunta
@@ -59,8 +67,9 @@ const upload = multer({
 
 // Configuración de multer para subir múltiples imágenes directas
 const multiImageStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../../uploads'));
+  destination: async (req, file, cb) => {
+    try { await ensureUploadsDir(); } catch (e) { /* ya existe */ }
+    cb(null, UPLOADS_DIR);
   },
   filename: (req, file, cb) => {
     // Conservar el nombre original del archivo
