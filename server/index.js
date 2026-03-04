@@ -87,19 +87,19 @@ app.use('/api/quiz', quizRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Ruta de health check — debe ir antes del wildcard del frontend
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'Servidor funcionando correctamente' });
+});
+
 // Servir el frontend en producción
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../client/build')));
-  
+
   app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/build/index.html'));
   });
 }
-
-// Ruta de health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Servidor funcionando correctamente' });
-});
 
 // Middleware global de manejo de errores para loguear problemas (incluyendo CORS)
 app.use((err, req, res, next) => {

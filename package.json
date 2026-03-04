@@ -1,11 +1,12 @@
 {
   "name": "test-conduccion-web",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "description": "Plataforma web para cuestionarios de conducción teóricos",
   "main": "server/index.js",
   "type": "module",
   "scripts": {
     "start": "node server/index.js",
+    "render-build": "npm install && cd client && npm install && npm run build",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "dev:clean": "concurrently \"set NODE_OPTIONS=--no-deprecation && npm run server\" \"start-client.bat\"",
     "server": "nodemon server/index.js",
