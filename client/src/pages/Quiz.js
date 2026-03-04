@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { FaClock, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
+import { PRACTICE_QUESTION_TIME } from '../config';
 import './Quiz.css';
 
 const Quiz = () => {
@@ -15,7 +16,7 @@ const Quiz = () => {
   const [submitting, setSubmitting] = useState(false);
   const [isPracticeMode, setIsPracticeMode] = useState(false);
   const [practiceStats, setPracticeStats] = useState({ correct: 0, total: 0 });
-  const [questionTimeLeft, setQuestionTimeLeft] = useState(60);
+  const [questionTimeLeft, setQuestionTimeLeft] = useState(PRACTICE_QUESTION_TIME);
   const [loadingNext, setLoadingNext] = useState(false);
   const [abandoning, setAbandoning] = useState(false);
   const [fontSize, setFontSize] = useState('small'); // 'small', 'medium', 'large'
@@ -35,6 +36,8 @@ const Quiz = () => {
   
   // Ref para prevenir doble llamada a /quiz/start (causado por React StrictMode)
   const startQuizCalled = useRef(false);
+  // Guard para evitar que handlePracticeTimeout se dispare más de una vez por pregunta
+  const timeoutCalledRef = useRef(false);
 
   useEffect(() => {
     initQuiz();
@@ -63,16 +66,26 @@ const Quiz = () => {
   }, [timeLeft, isPracticeMode]);
 
   useEffect(() => {
-    // Timer por pregunta en modo práctica
+    // Timer por pregunta en modo práctica.
+    // IMPORTANTE: questionTimeLeft NO está en las deps para evitar que el efecto
+    // se re-ejecute cada segundo (lo que destruiría y re-crearía el intervalo cada
+    // segundo, generando una carrera y llamadas dobles a handlePracticeTimeout).
+    // El valor actual se lee via la forma funcional del setter (prev =>) sin necesitar la dep.
+    // El timer solo se reinicia al cambiar de pregunta (currentIndex) o al entrar en práctica.
     if (!isPracticeMode) return;
-    if (questionTimeLeft <= 0) return;
+
+    timeoutCalledRef.current = false; // reset del guard al arrancar cada pregunta
+    setQuestionTimeLeft(PRACTICE_QUESTION_TIME); // asegurar que arranca desde el tope
 
     const timer = setInterval(() => {
       setQuestionTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(timer);
-          handleNextPracticeQuestion();
-          return 60;
+          if (!timeoutCalledRef.current) {
+            timeoutCalledRef.current = true;
+            handlePracticeTimeout();
+          }
+          return 0;
         }
         return prev - 1;
       });
@@ -80,7 +93,7 @@ const Quiz = () => {
 
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [questionTimeLeft, isPracticeMode, currentIndex]);
+  }, [isPracticeMode, currentIndex]);
 
   const initQuiz = async () => {
     try {
@@ -168,7 +181,7 @@ const Quiz = () => {
         setIsPracticeMode(response.data.isInfinite || false);
         
         if (response.data.isInfinite) {
-          setQuestionTimeLeft(60);
+          setQuestionTimeLeft(PRACTICE_QUESTION_TIME);
         } else {
           setTimeLeft(response.data.timeLimit);
         }
@@ -277,6 +290,32 @@ const Quiz = () => {
     }
   };
 
+  const handlePracticeTimeout = async () => {
+    const question = questions[currentIndex];
+    if (!question) return;
+
+    try {
+      // Registrar la pregunta como incorrecta (sin respuesta)
+      await axios.post('/quiz/answer', {
+        quizId: quiz.id,
+        questionId: question.id,
+        userAnswer: null
+      });
+    } catch (e) {
+      console.error('Error al registrar timeout:', e);
+    }
+
+    // Actualizar stats: total +1, corrects sin cambio
+    setPracticeStats(prev => ({ ...prev, total: prev.total + 1 }));
+
+    // Mostrar feedback negativo breve y avanzar
+    setAnswerFeedback({ show: true, isCorrect: false });
+    setTimeout(() => {
+      setAnswerFeedback({ show: false, isCorrect: null });
+      handleNextPracticeQuestion();
+    }, 1200);
+  };
+
   const handleNextPracticeQuestion = async () => {
     if (loadingNext) return;
     
@@ -300,8 +339,8 @@ const Quiz = () => {
       // Avanzar al siguiente índice (nueva pregunta)
       setCurrentIndex(prev => prev + 1);
       
-      // Resetear timer de pregunta
-      setQuestionTimeLeft(60);
+      // Resetear timer de pregunta — el useEffect lo reinicia al cambiar currentIndex
+      setQuestionTimeLeft(PRACTICE_QUESTION_TIME);
       
       setLoadingNext(false);
     } catch (error) {

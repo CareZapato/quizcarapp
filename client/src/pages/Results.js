@@ -106,8 +106,8 @@ const Results = () => {
   }
 
   const { quiz, answers } = data;
-  const percentage = quiz.score;
-  const passed = quiz.passed;
+  const percentage = quiz.score ?? (quiz.totalQuestions > 0 ? (quiz.correctAnswers / quiz.totalQuestions) * 100 : 0);
+  const passed = quiz.passed ?? (percentage >= 70);
 
   return (
     <div className="results-container">
@@ -324,7 +324,9 @@ const Results = () => {
 
                       {!userAnswered && (
                         <div className="alert alert-info">
-                          No respondiste esta pregunta
+                          {quiz.mode === 'practice'
+                            ? '⏱️ Tiempo agotado — esta pregunta no fue respondida'
+                            : 'No respondiste esta pregunta'}
                         </div>
                       )}
 

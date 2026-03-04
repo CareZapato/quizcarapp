@@ -431,19 +431,21 @@ router.post('/complete', authMiddleware, async (req, res) => {
       [quizId]
     );
 
-    const totalAnswered = await dbGet(
+    // Total de preguntas presentadas al usuario (incluyendo las que se pas\u00f3 por tiempo)
+    const totalServed = await dbGet(
       `SELECT COUNT(*) as count 
        FROM user_answers 
-       WHERE quiz_id = $1 AND user_answer IS NOT NULL`,
+       WHERE quiz_id = $1`,
       [quizId]
     );
 
     const correctCount = correctAnswers.count;
-    
-    // Para el modo práctica, calcular el score basado en preguntas respondidas
+
+    // Para el modo pr\u00e1ctica, el score se calcula sobre TODAS las preguntas presentadas
+    // (correctas + incorrectas + tiempo agotado). As\u00ed una pregunta sin contestar cuenta como error.
     let totalForScore = quiz.total_questions;
     if (quiz.mode === 'practice') {
-      totalForScore = totalAnswered.count || 1; // Evitar división por cero
+      totalForScore = totalServed.count || 1; // Evitar divisi\u00f3n por cero
     }
     
     const score = (correctCount / totalForScore) * 100;
@@ -472,7 +474,7 @@ router.post('/complete', authMiddleware, async (req, res) => {
              passed = $6,
              completed_at = CURRENT_TIMESTAMP
          WHERE id = $7`,
-        [QUIZ_STATUS.FINISHED, totalAnswered.count, correctCount, score, timeTaken, passed, quizId]
+        [QUIZ_STATUS.FINISHED, totalServed.count, correctCount, score, timeTaken, passed, quizId]
       );
       console.log('UPDATE para modo práctica - Rows affected:', result.changes);
     } else {
@@ -665,7 +667,8 @@ router.get('/:quizId/results', authMiddleware, async (req, res) => {
        WHERE ua.quiz_id = $1`;
 
     if (quiz.mode === 'practice') {
-      answersQuery += ' AND ua.user_answer IS NOT NULL';
+      // Incluir también preguntas sin respuesta (tiempo agotado): user_answer IS NULL
+      // No filtrar nada extra, se muestran todas con su estado real.
     }
 
     answersQuery += ' ORDER BY ua.id';
