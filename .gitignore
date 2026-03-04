@@ -144,3 +144,4 @@ database.sqlite
 uploads/
 client/build/
 .DS_Store
+server/report*.txt

@@ -19,39 +19,19 @@ import Stats from './pages/Stats';
 import Admin from './pages/Admin';
 import Profile from './pages/Profile';
 
-// Configurar axios para usar la URL base dinámica
-let API_URL = process.env.REACT_APP_API_URL || '/api';
-
-// Normalizar la URL de API en el navegador
-if (typeof window !== 'undefined') {
-  const hostname = window.location.hostname;
-
-  try {
-    if (!API_URL) {
-      API_URL = '/api';
-    } else if (API_URL.startsWith('http')) {
-      const parsed = new URL(API_URL);
-
-      // Si el host de la API no coincide con el host que sirve el front,
-      // usamos ruta relativa para evitar problemas cuando accedemos por IP/hostname.
-      if (parsed.hostname !== hostname) {
-        API_URL = '/api';
-      }
-    }
-  } catch (e) {
-    // Si hay cualquier problema parseando la URL, usar ruta relativa segura
-    API_URL = '/api';
-  }
-}
+// URL de la API: siempre construida en runtime desde el hostname actual del front.
+// Así funciona en local (localhost) y en red (cualquier IP) sin compilar IPs.
+// Para cambiar el puerto del backend, usa REACT_APP_API_PORT en client/.env
+const _apiPort = process.env.REACT_APP_API_PORT || '3000';
+const API_URL  = `http://${window.location.hostname}:${_apiPort}/api`;
 
 axios.defaults.baseURL = API_URL;
 
-// Configurar axios para NO cachear peticiones
+// No cachear peticiones
 axios.defaults.headers.common['Cache-Control'] = 'no-cache, no-store, must-revalidate';
 axios.defaults.headers.common['Pragma'] = 'no-cache';
 axios.defaults.headers.common['Expires'] = '0';
 
-// Log para debugging
 console.log('API URL configurada:', API_URL);
 
 function App() {

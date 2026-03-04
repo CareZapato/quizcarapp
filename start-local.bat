@@ -1,33 +1,36 @@
 @echo off
 echo.
 echo ================================================
-echo   Configurando para desarrollo local
+echo   Iniciando en modo LOCAL (solo este equipo)
 echo ================================================
 echo.
 
-REM Actualizar el archivo .env del cliente con localhost
+REM Escribir configuracion del cliente
 (
 echo PORT=3001
 echo BROWSER=none
-echo REACT_APP_API_URL=http://localhost:3000/api
+echo REACT_APP_API_PORT=3000
+echo GENERATE_SOURCEMAP=false
 ) > client\.env
 
+echo Configuracion escrita en client/.env
+echo   API URL : /api  (proxy -> localhost:3000)
 echo.
-echo ✅ Configuracion actualizada a localhost
-echo.
-echo Archivo client/.env actualizado para usar:
-echo   REACT_APP_API_URL=http://localhost:3000/api
-echo.
-echo ================================================
-echo   Instrucciones:
-echo ================================================
-echo.
-echo 1. Esta configuracion es para desarrollo local
-echo 2. Solo podras acceder desde este dispositivo
-echo 3. Accede a: http://localhost:3001
-echo.
-echo Para acceso por red, ejecuta: start-network.bat
+echo Backend  : http://localhost:3000
+echo Frontend : http://localhost:3001
 echo.
 echo ================================================
+echo Presiona cualquier tecla para iniciar...
+pause > nul
+
+REM Iniciar backend
+start "Backend (Puerto 3000)" cmd /k "cd /d %~dp0 && npm run server"
+timeout /t 3 > nul
+
+REM Iniciar frontend
+start "Frontend (Puerto 3001)" cmd /k "cd /d %~dp0client && npm start"
+
 echo.
-pause
+echo Servidores iniciados en ventanas separadas.
+echo Accede a: http://localhost:3001
+echo.

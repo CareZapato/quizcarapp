@@ -2,74 +2,69 @@
 
 echo ""
 echo "================================================"
-echo "   Iniciando aplicación con acceso por red"
+echo "   Iniciando con acceso por red"
 echo "================================================"
 echo ""
 
-# Obtener la IP local
+# Detectar IP local
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS
-    IP=$(ipconfig getifaddr en0)
-    if [ -z "$IP" ]; then
-        IP=$(ipconfig getifaddr en1)
-    fi
+    IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null)
 else
-    # Linux
     IP=$(hostname -I | awk '{print $1}')
 fi
 
-echo "Tu IP local es: $IP"
-echo ""
-echo "Configurando acceso por red..."
+echo "IP local detectada: $IP"
 echo ""
 
-# Actualizar el archivo .env del cliente con la IP
+# Escritura config del cliente
+# La app autodetecta la IP a partir de window.location.hostname,
+# solo necesitamos indicar el puerto del backend.
 cat > client/.env << EOF
 PORT=3001
 BROWSER=none
-REACT_APP_API_URL=http://$IP:3000/api
+REACT_APP_API_PORT=3000
+GENERATE_SOURCEMAP=false
 EOF
 
-echo "Archivo client/.env actualizado"
+echo "Configuracion escrita en client/.env"
+echo "  API : http://<hostname>:3000/api  (autodetectado)"
 echo ""
 echo "================================================"
-echo "   Instrucciones:"
+echo "  Acceso disponible en:"
 echo "================================================"
 echo ""
-echo "1. El backend escuchará en: http://$IP:3000"
-echo "2. El frontend escuchará en: http://$IP:3001"
-echo ""
-echo "3. Desde este dispositivo accede a:"
-echo "   http://localhost:3001"
-echo ""
-echo "4. Desde otros dispositivos en la red accede a:"
-echo "   http://$IP:3001"
+echo "  Este equipo  : http://localhost:3001"
+echo "  Otros dispos.: http://$IP:3001"
 echo ""
 echo "================================================"
 echo ""
 echo "Iniciando servidores..."
 echo ""
 
+# Directorio raiz del proyecto
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 # Iniciar backend en segundo plano
-cd server
-npm run dev &
+cd "$ROOT_DIR"
+npm run server &
 BACKEND_PID=$!
 
-# Esperar un poco para que el backend inicie
+# Esperar a que el backend levante
 sleep 3
 
 # Iniciar frontend
-cd ../client
+cd "$ROOT_DIR/client"
 npm start &
 FRONTEND_PID=$!
 
 echo ""
-echo "Servidores iniciados!"
-echo "Backend PID: $BACKEND_PID"
-echo "Frontend PID: $FRONTEND_PID"
+echo "Servidores iniciados."
+echo "  Backend  PID : $BACKEND_PID  -> http://$IP:3000"
+echo "  Frontend PID : $FRONTEND_PID -> http://$IP:3001"
 echo ""
-echo "Para detener los servidores, presiona Ctrl+C"
+echo "Presiona Ctrl+C para detener ambos servidores."
 echo ""
 
-# Esperar a que se termine
+# Esperar señal de salida y limpiar
+trap "kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit 0" INT TERM
 wait
