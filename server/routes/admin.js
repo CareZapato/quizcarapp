@@ -268,25 +268,40 @@ router.post('/upload-image', authMiddleware, adminMiddleware, upload.single('ima
     }
 
     const questionId = req.body.questionId;
-    const timestamp = Date.now();
-    const ext = path.extname(req.file.filename);
-    
-    // Nuevo nombre: idpregunta_fecha.ext o temp_fecha.ext si no hay questionId aún
-    const newFilename = questionId 
-      ? `${questionId}_${timestamp}${ext}`
-      : `temp_${timestamp}${ext}`;
-    
+    const ext = path.extname(req.file.originalname).toLowerCase();
+
+    // Nombre estable: {questionId}.ext — sin timestamp para que sea predecible,
+    // persistible en git y consistente con la BD entre deploys.
+    const newFilename = questionId
+      ? `${questionId}${ext}`
+      : `temp_${Date.now()}${ext}`;
+
     const oldPath = req.file.path;
-    const newPath = path.join(path.dirname(oldPath), newFilename);
-    
-    // Renombrar el archivo
+    const newPath = path.join(UPLOADS_DIR, newFilename);
+
+    // Borrar imagen anterior de esta pregunta (cualquier extensión) para no acumular
+    if (questionId) {
+      const existing = await fs.readdir(UPLOADS_DIR).catch(() => []);
+      const prev = existing.filter(f => {
+        const base = path.basename(f, path.extname(f));
+        // Coincide con "{questionId}" o "{questionId}_{timestamp}" (nombres viejos)
+        return base === String(questionId) || base.startsWith(`${questionId}_`);
+      });
+      await Promise.all(prev.map(f => fs.unlink(path.join(UPLOADS_DIR, f)).catch(() => {})));
+    }
+
     await fs.rename(oldPath, newPath);
-    
+
     const imageUrl = `/uploads/${newFilename}`;
-    
+
+    // Actualizar image_url en la BD si se proporcionó questionId
+    if (questionId) {
+      await dbRun('UPDATE questions SET image_url = $1 WHERE id = $2', [imageUrl, questionId]);
+    }
+
     res.json({
       message: 'Imagen subida exitosamente',
-      imageUrl: imageUrl,
+      imageUrl,
       filename: newFilename
     });
   } catch (error) {

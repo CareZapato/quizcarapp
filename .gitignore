@@ -141,7 +141,7 @@ vite.config.ts.timestamp-*
 
 # Project specific
 database.sqlite
-uploads/
+uploads/temp_*
 client/build/
 .DS_Store
 server/report*.txt
