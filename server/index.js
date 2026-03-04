@@ -39,10 +39,18 @@ function getLocalIpAddress() {
 // Middleware
 app.use(cors({
   origin: function(origin, callback) {
-    // Permitir requests sin origin (aplicaciones móviles, postman, etc)
+    // Permitir requests sin origin (mobile apps, Postman, same-origin, etc.)
     if (!origin) return callback(null, true);
-    
-    // Permitir localhost y IPs de red local
+
+    // En producción el front se sirve desde el mismo servidor Express.
+    // Las peticiones del navegador son same-origin y no llevan Origin.
+    // Si llega un Origin en producción (ej. CDN, app móvil), se permite
+    // igualmente porque la autenticación es por JWT, no por cookies.
+    if (process.env.NODE_ENV === 'production') {
+      return callback(null, true);
+    }
+
+    // En desarrollo: solo localhost y red local
     const allowedOrigins = [
       'http://localhost:3001',
       'http://127.0.0.1:3001',
@@ -50,17 +58,15 @@ app.use(cors({
       /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:3001$/,
       /^http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}:3001$/
     ];
-    
-    const isAllowed = allowedOrigins.some(pattern => {
-      if (pattern instanceof RegExp) {
-        return pattern.test(origin);
-      }
-      return pattern === origin;
-    });
-    
-    if (isAllowed || process.env.NODE_ENV === 'development') {
+
+    const isAllowed = allowedOrigins.some(pattern =>
+      pattern instanceof RegExp ? pattern.test(origin) : pattern === origin
+    );
+
+    if (isAllowed) {
       callback(null, true);
     } else {
+      console.warn(`CORS bloqueado para origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
