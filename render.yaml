@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: testconduccion-api
+    runtime: node
+    buildCommand: npm run render-build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false        # se configura manualmente en el dashboard
+      - key: DATABASE_URL
+        sync: false        # se configura manualmente en el dashboard

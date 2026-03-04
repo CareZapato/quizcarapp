@@ -94,10 +94,26 @@ app.get('/api/health', (req, res) => {
 
 // Servir el frontend en producción
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/build')));
+  const buildPath      = path.join(__dirname, '../client/build');
+  const buildIndexPath = path.join(buildPath, 'index.html');
+
+  // Verificar en el arranque si el build existe
+  import('fs').then(({ existsSync }) => {
+    if (!existsSync(buildIndexPath)) {
+      console.error('⚠️  ADVERTENCIA: client/build no encontrado. Asegúrate de que el Build Command incluye "cd client && npm install && npm run build".');
+    } else {
+      console.log('✅ Frontend build encontrado:', buildPath);
+    }
+  });
+
+  app.use(express.static(buildPath));
 
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/build/index.html'));
+    res.sendFile(buildIndexPath, (err) => {
+      if (err) {
+        res.status(503).send('Frontend no disponible. El servidor está activo pero el build del cliente no se generó durante el deploy.');
+      }
+    });
   });
 }
 

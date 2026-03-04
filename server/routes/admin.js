@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
+import unzipper from 'unzipper';
 import { dbAll, dbGet, dbRun } from '../config/database.js';
 import { authMiddleware } from '../middleware/auth.js';
 
@@ -54,6 +55,30 @@ const upload = multer({
   fileFilter: fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB máximo
+  }
+});
+
+// Configuración de multer para subir paquetes de imágenes (ZIP / RAR)
+const archiveStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, '../../uploads'));
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `archive-temp-${Date.now()}${ext}`);
+  }
+});
+
+const archiveUpload = multer({
+  storage: archiveStorage,
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500 MB máximo
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === '.zip' || ext === '.rar') {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo se permiten archivos ZIP o RAR'), false);
+    }
   }
 });
 
@@ -260,6 +285,89 @@ router.post('/upload-image', authMiddleware, adminMiddleware, upload.single('ima
   } catch (error) {
     console.error('Error al subir imagen:', error);
     res.status(500).json({ error: 'Error al subir imagen' });
+  }
+});
+
+// Extensiones de imagen permitidas para extracción de paquetes
+const ALLOWED_IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']);
+
+// Subir paquete de imágenes (ZIP o RAR) y extraer su contenido en /uploads
+router.post('/upload-images-pack', authMiddleware, adminMiddleware, archiveUpload.single('archive'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No se proporcionó ningún archivo' });
+  }
+
+  const uploadsDir  = path.join(__dirname, '../../uploads');
+  const archivePath = req.file.path;
+  const ext         = path.extname(req.file.originalname).toLowerCase();
+  const saved   = [];
+  const skipped = [];
+
+  // Helper: ¿el entry está en la raíz del archivo? (sin subcarpetas)
+  const isRootEntry = (entryPath) => {
+    const normalized = entryPath.replace(/\\/g, '/');
+    const dir = path.posix.dirname(normalized);
+    return dir === '.' || dir === '';
+  };
+
+  try {
+    if (ext === '.zip') {
+      // ── ZIP ──────────────────────────────────────────────────────
+      const zip = await unzipper.Open.file(archivePath);
+
+      for (const entry of zip.files) {
+        if (entry.type === 'Directory') continue;
+        if (!isRootEntry(entry.path))  continue;
+
+        const basename = path.basename(entry.path);
+        const fileExt  = path.extname(basename).toLowerCase();
+        if (!ALLOWED_IMAGE_EXTS.has(fileExt)) { skipped.push(basename); continue; }
+
+        const buffer   = await entry.buffer();
+        await fs.writeFile(path.join(uploadsDir, basename), buffer);
+        saved.push(basename);
+      }
+
+    } else if (ext === '.rar') {
+      // ── RAR ──────────────────────────────────────────────────────
+      const { createExtractorFromData } = await import('node-unrar-js');
+      const fileData  = await fs.readFile(archivePath);
+      const extractor = await createExtractorFromData({ data: fileData.buffer });
+
+      const list    = extractor.getFileList();
+      const headers = [...list.fileHeaders].filter(fh => {
+        if (fh.flags.directory) return false;
+        if (!isRootEntry(fh.name)) return false;
+        return ALLOWED_IMAGE_EXTS.has(path.extname(fh.name).toLowerCase());
+      });
+
+      if (headers.length > 0) {
+        const extraction = extractor.extract({ files: headers.map(fh => fh.name) });
+        for (const file of [...extraction.files]) {
+          if (!file.extraction) continue;
+          const basename = path.basename(file.fileHeader.name);
+          await fs.writeFile(path.join(uploadsDir, basename), Buffer.from(file.extraction));
+          saved.push(basename);
+        }
+      }
+    }
+
+    // Borrar el archivo temporal del paquete subido
+    await fs.unlink(archivePath).catch(() => {});
+
+    console.log(`📦 Paquete de imágenes extraído: ${saved.length} guardadas, ${skipped.length} omitidas`);
+
+    res.json({
+      message: `Extracción completada: ${saved.length} imagen(es) guardada(s)`,
+      saved,
+      skipped,
+      total: saved.length
+    });
+
+  } catch (error) {
+    await fs.unlink(archivePath).catch(() => {});
+    console.error('Error al extraer paquete de imágenes:', error);
+    res.status(500).json({ error: 'Error al extraer el archivo: ' + error.message });
   }
 });
 
