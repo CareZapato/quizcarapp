@@ -25,7 +25,7 @@ const Admin = () => {
   const [quickUploadingImage, setQuickUploadingImage] = useState(false);
   const [previewModal, setPreviewModal] = useState({ show: false, question: null });
   const [showImagePackUpload, setShowImagePackUpload] = useState(false);
-  const [imagePackFile, setImagePackFile]   = useState(null);
+  const [imageFiles, setImageFiles]         = useState([]);
   const [uploadingPack, setUploadingPack]   = useState(false);
   const [packResult, setPackResult]         = useState(null); // { saved, skipped, total }
 
@@ -72,21 +72,21 @@ const Admin = () => {
   };
 
   const handleImagePackUpload = async () => {
-    if (!imagePackFile) return;
+    if (imageFiles.length === 0) return;
     setUploadingPack(true);
     setPackResult(null);
     try {
       const formData = new FormData();
-      formData.append('archive', imagePackFile);
-      const res = await axios.post('/admin/upload-images-pack', formData, {
+      imageFiles.forEach(f => formData.append('images', f));
+      const res = await axios.post('/admin/upload-images', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 300000 // 5 min para archivos grandes
+        timeout: 120000 // 2 min
       });
       setPackResult(res.data);
-      setImagePackFile(null);
+      setImageFiles([]);
     } catch (error) {
-      console.error('Error al subir paquete:', error);
-      setPackResult({ error: error.response?.data?.error || 'Error al subir el archivo' });
+      console.error('Error al subir imágenes:', error);
+      setPackResult({ error: error.response?.data?.error || 'Error al subir las imágenes' });
     } finally {
       setUploadingPack(false);
     }
@@ -663,12 +663,12 @@ const Admin = () => {
               setShowForm(false);
               setViewMode('list');
               setPackResult(null);
-              setImagePackFile(null);
+              setImageFiles([]);
               setShowImagePackUpload(!showImagePackUpload);
             }}
-            title="Subir ZIP o RAR con imágenes"
+            title="Subir imágenes directamente"
           >
-            🖼️ Imágenes Pack
+            🖼️ Subir Imágenes
           </button>
           <button
             className="btn btn-warning btn-small"
@@ -842,49 +842,53 @@ const Admin = () => {
         <div className="backup-section">
           <div className="backup-container">
             <div className="backup-header">
-              <h2>🖼️ Subir Paquete de Imágenes</h2>
+              <h2>🖼️ Subir Imágenes</h2>
               <button
                 className="btn btn-secondary btn-small"
-                onClick={() => { setShowImagePackUpload(false); setPackResult(null); setImagePackFile(null); }}
+                onClick={() => { setShowImagePackUpload(false); setPackResult(null); setImageFiles([]); }}
               >
                 ✕ Cerrar
               </button>
             </div>
 
             <div className="backup-box" style={{ maxWidth: 520 }}>
-              <div className="backup-box-icon export">📦</div>
-              <h3>Importar imágenes desde ZIP o RAR</h3>
+              <div className="backup-box-icon export">🖼️</div>
+              <h3>Subir imágenes al servidor</h3>
               <p className="backup-description">
-                Sube un archivo <strong>.zip</strong> o <strong>.rar</strong> con las imágenes en la raíz del paquete (sin subcarpetas).
-                Las imágenes se guardarán directamente en la carpeta de uploads con su nombre original.
+                Seleccioná uno o varios archivos de imagen. Se guardarán en la carpeta de uploads
+                con <strong>el mismo nombre que tienen</strong> en tu equipo.
               </p>
 
               <div className="file-upload-section">
                 <label className="file-upload-label backup-file-label">
-                  📁 {imagePackFile ? imagePackFile.name : 'Seleccionar archivo ZIP o RAR'}
+                  📁 {imageFiles.length > 0
+                    ? `${imageFiles.length} imagen(es) seleccionada(s)`
+                    : 'Seleccionar imágenes...'}
                   <input
                     type="file"
-                    accept=".zip,.rar"
+                    accept="image/*"
+                    multiple
                     className="file-input"
-                    onChange={(e) => { setImagePackFile(e.target.files[0] || null); setPackResult(null); }}
+                    onChange={(e) => { setImageFiles(Array.from(e.target.files)); setPackResult(null); }}
                   />
                 </label>
               </div>
 
-              {imagePackFile && (
-                <div className="backup-info" style={{ marginTop: 8 }}>
-                  <FaCheckCircle className="info-icon" />
-                  <span>{imagePackFile.name} ({(imagePackFile.size / 1024 / 1024).toFixed(2)} MB)</span>
-                </div>
+              {imageFiles.length > 0 && (
+                <ul style={{ marginTop: 8, fontSize: 12, maxHeight: 120, overflowY: 'auto', background: '#f3f4f6', padding: '8px 12px', borderRadius: 6 }}>
+                  {imageFiles.map(f => (
+                    <li key={f.name}>📄 {f.name} <span style={{ color: '#888' }}>({(f.size / 1024).toFixed(0)} KB)</span></li>
+                  ))}
+                </ul>
               )}
 
               <button
                 className="btn btn-primary btn-large"
                 style={{ marginTop: 16 }}
                 onClick={handleImagePackUpload}
-                disabled={!imagePackFile || uploadingPack}
+                disabled={imageFiles.length === 0 || uploadingPack}
               >
-                {uploadingPack ? '⏳ Extrayendo...' : '📤 Subir y Extraer'}
+                {uploadingPack ? '⏳ Subiendo...' : `📤 Subir ${imageFiles.length > 0 ? imageFiles.length + ' imagen(es)' : 'imágenes'}`}
               </button>
 
               {/* Resultado */}
