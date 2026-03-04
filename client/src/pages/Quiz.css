@@ -264,7 +264,8 @@
 }
 
 .question-header {
-  margin-bottom: 12px;
+  display: none;
+  margin-bottom: 0;
 }
 
 .question-number {
@@ -281,6 +282,12 @@
   opacity: 0.85;
   font-weight: 500;
   font-size: 9px; /* Reducido de 13px */
+}
+
+.question-inline-number {
+  font-weight: 700;
+  color: var(--primary);
+  margin-right: 4px;
 }
 
 .question-text {
@@ -336,6 +343,19 @@
   border-color: var(--primary);
   box-shadow: 0 4px 8px var(--shadow);
   transform: translateY(-2px);
+}
+
+/* Evitar que el foco del browser quede como borde marcado tras hacer clic */
+.option-button:focus {
+  outline: none;
+  border-color: #e5e7eb;
+  box-shadow: none;
+}
+
+.option-button:focus-visible {
+  outline: none;
+  border-color: #e5e7eb;
+  box-shadow: none;
 }
 
 .option-button.selected {
@@ -725,7 +745,8 @@
   }
 
   .question-header {
-    margin-bottom: 8px;
+    display: none;
+    margin-bottom: 0;
   }
 
   .question-number {

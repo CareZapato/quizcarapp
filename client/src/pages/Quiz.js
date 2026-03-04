@@ -289,12 +289,15 @@ const Quiz = () => {
       });
 
       // Agregar la nueva pregunta a la lista
-      setQuestions(prev => [...prev, response.data.question]);
-      
-      // Limpiar respuesta anterior
+      setQuestions(prev => {
+        const updated = [...prev, response.data.question];
+        return updated;
+      });
+
+      // Limpiar todas las respuestas para evitar alternativas preseleccionadas
       setAnswers({});
-      
-      // Avanzar al siguiente índice
+
+      // Avanzar al siguiente índice (nueva pregunta)
       setCurrentIndex(prev => prev + 1);
       
       // Resetear timer de pregunta
@@ -548,7 +551,10 @@ const Quiz = () => {
             </span>
           </div>
           
-          <h2 className="question-text">{currentQuestion.question_text}</h2>
+          <h2 className="question-text">
+            <span className="question-inline-number">{currentIndex + 1})</span>
+            {' '}{currentQuestion.question_text}
+          </h2>
           
           {currentQuestion.image_url && (
             <div className="question-image">

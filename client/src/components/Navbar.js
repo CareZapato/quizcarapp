@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FaUser, FaChartBar, FaSignOutAlt, FaCog, FaHome, FaCar } from 'react-icons/fa';
+import { APP_VERSION } from '../config';
 import './Navbar.css';
 
 const Navbar = ({ quizMode = null }) => {
@@ -29,7 +30,7 @@ const Navbar = ({ quizMode = null }) => {
             <Link to="/dashboard" className="navbar-brand">
               <FaCar className="brand-icon" />
               <span className="brand-text">DriverTest</span>
-              <span className="brand-version">v0.4.5</span>
+              <span className="brand-version">v{APP_VERSION}</span>
             </Link>
             {isAdmin && (
               <Link 
