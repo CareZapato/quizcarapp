@@ -20,7 +20,30 @@ import Admin from './pages/Admin';
 import Profile from './pages/Profile';
 
 // Configurar axios para usar la URL base dinámica
-const API_URL = process.env.REACT_APP_API_URL || '/api';
+let API_URL = process.env.REACT_APP_API_URL || '/api';
+
+// Normalizar la URL de API en el navegador
+if (typeof window !== 'undefined') {
+  const hostname = window.location.hostname;
+
+  try {
+    if (!API_URL) {
+      API_URL = '/api';
+    } else if (API_URL.startsWith('http')) {
+      const parsed = new URL(API_URL);
+
+      // Si el host de la API no coincide con el host que sirve el front,
+      // usamos ruta relativa para evitar problemas cuando accedemos por IP/hostname.
+      if (parsed.hostname !== hostname) {
+        API_URL = '/api';
+      }
+    }
+  } catch (e) {
+    // Si hay cualquier problema parseando la URL, usar ruta relativa segura
+    API_URL = '/api';
+  }
+}
+
 axios.defaults.baseURL = API_URL;
 
 // Configurar axios para NO cachear peticiones

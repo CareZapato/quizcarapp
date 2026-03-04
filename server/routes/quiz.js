@@ -637,8 +637,9 @@ router.get('/:quizId/results', authMiddleware, async (req, res) => {
     }
 
     // Obtener todas las respuestas con detalles
-    const answers = await dbAll(
-      `SELECT 
+    // En modo práctica (quiz infinito), solo consideramos las preguntas que tienen
+    // una respuesta registrada para que el resumen coincida exactamente con lo contestado.
+    let answersQuery = `SELECT 
         ua.id,
         ua.user_answer,
         ua.is_correct,
@@ -661,10 +662,15 @@ router.get('/:quizId/results', authMiddleware, async (req, res) => {
        FROM user_answers ua
        JOIN questions q ON ua.question_id = q.id
        LEFT JOIN categories c ON q.category_id = c.id
-       WHERE ua.quiz_id = $1
-       ORDER BY ua.id`,
-      [quizId]
-    );
+       WHERE ua.quiz_id = $1`;
+
+    if (quiz.mode === 'practice') {
+      answersQuery += ' AND ua.user_answer IS NOT NULL';
+    }
+
+    answersQuery += ' ORDER BY ua.id';
+
+    const answers = await dbAll(answersQuery, [quizId]);
 
     res.json({
       quiz: {

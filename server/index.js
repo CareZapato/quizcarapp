@@ -66,6 +66,14 @@ app.use(cors({
   },
   credentials: true
 }));
+
+// Middleware de logging básico de peticiones
+app.use((req, res, next) => {
+  const now = new Date().toISOString();
+  console.log(`[${now}] ${req.method} ${req.originalUrl} - Origin: ${req.headers.origin || 'N/A'}`);
+  next();
+});
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -91,6 +99,25 @@ if (process.env.NODE_ENV === 'production') {
 // Ruta de health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Servidor funcionando correctamente' });
+});
+
+// Middleware global de manejo de errores para loguear problemas (incluyendo CORS)
+app.use((err, req, res, next) => {
+  console.error('❌ Error en la petición:', {
+    message: err.message,
+    stack: err.stack,
+    method: req.method,
+    url: req.originalUrl,
+    origin: req.headers.origin || 'N/A'
+  });
+
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  res.status(err.status || 500).json({
+    error: err.message || 'Error interno del servidor'
+  });
 });
 
 // Verificar e inicializar base de datos antes de iniciar el servidor
