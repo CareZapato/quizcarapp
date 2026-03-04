@@ -301,12 +301,6 @@ router.post('/upload-images', authMiddleware, adminMiddleware, multiImageUpload.
     skipped: [],
     total: saved.length
   });
-
-  } catch (error) {
-    await fs.unlink(archivePath).catch(() => {});
-    console.error('Error al extraer paquete de imágenes:', error);
-    res.status(500).json({ error: 'Error al extraer el archivo: ' + error.message });
-  }
 });
 
 // Obtener estadísticas generales (admin)
