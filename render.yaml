@@ -2,12 +2,16 @@ services:
   - type: web
     name: testconduccion-api
     runtime: node
-    buildCommand: npm run render-build
+    buildCommand: bash build.sh
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
+      - key: REACT_APP_API_URL
+        value: /api           # En Render, front y back corren en el mismo servidor → ruta relativa
+      - key: CI
+        value: "false"        # Evita que los warnings de ESLint aborte el build
       - key: JWT_SECRET
-        sync: false        # se configura manualmente en el dashboard
+        sync: false           # se configura manualmente en el dashboard
       - key: DATABASE_URL
-        sync: false        # se configura manualmente en el dashboard
+        sync: false           # se configura manualmente en el dashboard

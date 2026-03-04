@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node server/index.js",
-    "render-build": "npm install && npm --prefix client install && CI=false npm --prefix client run build",
+    "render-build": "npm install && npm --prefix client install && REACT_APP_API_URL=/api CI=false npm --prefix client run build",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "dev:clean": "concurrently \"set NODE_OPTIONS=--no-deprecation && npm run server\" \"start-client.bat\"",
     "server": "nodemon server/index.js",

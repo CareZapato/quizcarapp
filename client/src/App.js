@@ -20,9 +20,11 @@ import Admin from './pages/Admin';
 import Profile from './pages/Profile';
 
 // URL de la API:
-// - En producción (Render, etc.): usa REACT_APP_API_URL (URL absoluta del backend).
-// - En desarrollo local/red: construye la URL en runtime desde window.location.hostname
-//   + REACT_APP_API_PORT, así funciona en localhost y en cualquier IP sin configurar nada.
+// - En producción Render (mismo servidor para front y back):
+//     REACT_APP_API_URL=/api  →  axios usa ruta relativa, sin puerto ni hostname.
+// - En desarrollo local/red:
+//     Sin REACT_APP_API_URL → construye la URL en runtime desde window.location.hostname
+//     + REACT_APP_API_PORT, así funciona en localhost y en cualquier IP sin configurar nada.
 const _apiPort = process.env.REACT_APP_API_PORT || '3000';
 const API_URL  = process.env.REACT_APP_API_URL
   || `http://${window.location.hostname}:${_apiPort}/api`;
