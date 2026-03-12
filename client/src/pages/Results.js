@@ -142,7 +142,6 @@ const Results = () => {
                 stroke={passed ? '#10b981' : '#ef4444'}
                 strokeWidth="20"
                 strokeDasharray={`${(percentage / 100) * 565.48} 565.48`}
-                strokeDashoffset="141.37"
                 transform="rotate(-90 100 100)"
               />
             </svg>

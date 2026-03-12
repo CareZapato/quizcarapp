@@ -391,7 +391,7 @@ router.post('/complete', authMiddleware, async (req, res) => {
   try {
     await ensureQuizStatusSchema();
 
-    const { quizId, timeTaken } = req.body;
+    const { quizId, timeTaken, excludeQuestionId } = req.body;
     const userId = req.userId;
 
     console.log('=== INICIO COMPLETE ===');
@@ -421,6 +421,14 @@ router.post('/complete', authMiddleware, async (req, res) => {
 
     if (quiz.status_code !== QUIZ_STATUS.IN_PROGRESS) {
       return res.status(400).json({ error: 'Solo se puede finalizar un cuestionario en curso' });
+    }
+
+    // Si se termina práctica manualmente, excluir la pregunta actual sin contestar
+    if (excludeQuestionId && quiz.mode === 'practice') {
+      await dbRun(
+        'DELETE FROM user_answers WHERE quiz_id = $1 AND question_id = $2 AND user_answer IS NULL',
+        [quizId, excludeQuestionId]
+      );
     }
 
     // Calcular resultados

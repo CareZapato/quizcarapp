@@ -191,4 +191,36 @@ router.put('/profile', async (req, res) => {
   }
 });
 
+// Resetear contraseña sin verificación de contraseña actual
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { username, newPassword, confirmPassword } = req.body;
+
+    if (!username || !newPassword || !confirmPassword) {
+      return res.status(400).json({ error: 'Todos los campos son requeridos' });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ error: 'Las contraseñas no coinciden' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    }
+
+    const user = await dbGet('SELECT id FROM users WHERE username = $1', [username]);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await dbRun('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, user.id]);
+
+    res.json({ message: 'Contraseña actualizada exitosamente' });
+  } catch (error) {
+    console.error('Error al resetear contraseña:', error);
+    res.status(500).json({ error: 'Error al resetear la contraseña' });
+  }
+});
+
 export default router;

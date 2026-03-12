@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { FaUser, FaLock, FaSave, FaArrowLeft, FaEnvelope, FaCalendar } from 'react-icons/fa';
+import { FaUser, FaLock, FaSave, FaArrowLeft, FaEnvelope, FaCalendar, FaKey } from 'react-icons/fa';
 import './Profile.css';
 
 const Profile = () => {
@@ -18,6 +18,10 @@ const Profile = () => {
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+
+  const [resetData, setResetData] = useState({ newPassword: '', confirmPassword: '' });
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetMessage, setResetMessage] = useState({ type: '', text: '' });
 
   const handleChange = (e) => {
     setFormData({
@@ -90,6 +94,29 @@ const Profile = () => {
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  const handleResetChange = (e) => {
+    setResetData({ ...resetData, [e.target.name]: e.target.value });
+  };
+
+  const handleResetSubmit = async (e) => {
+    e.preventDefault();
+    setResetMessage({ type: '', text: '' });
+    setResetLoading(true);
+    try {
+      const response = await axios.post('/auth/reset-password', {
+        username: user?.username,
+        newPassword: resetData.newPassword,
+        confirmPassword: resetData.confirmPassword
+      });
+      setResetMessage({ type: 'success', text: response.data.message });
+      setResetData({ newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      setResetMessage({ type: 'error', text: err.response?.data?.error || 'Error al restablecer la contraseña' });
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   return (
@@ -250,6 +277,58 @@ const Profile = () => {
                 </div>
               </>
             )}
+          </form>
+        </div>
+      </div>
+
+      <div className="profile-container">
+        <div className="profile-form-card" style={{ gridColumn: '1 / -1' }}>
+          <div className="form-card-header">
+            <h3><FaKey /> Restablecer Contraseña</h3>
+          </div>
+
+          {resetMessage.text && (
+            <div className={`alert alert-${resetMessage.type}`}>
+              {resetMessage.text}
+            </div>
+          )}
+
+          <form onSubmit={handleResetSubmit} className="profile-form">
+            <div className="form-group">
+              <label htmlFor="resetNewPassword">
+                <FaLock /> Nueva Contraseña
+              </label>
+              <input
+                type="password"
+                id="resetNewPassword"
+                name="newPassword"
+                value={resetData.newPassword}
+                onChange={handleResetChange}
+                placeholder="Mínimo 6 caracteres"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="resetConfirmPassword">
+                <FaLock /> Confirmar Nueva Contraseña
+              </label>
+              <input
+                type="password"
+                id="resetConfirmPassword"
+                name="confirmPassword"
+                value={resetData.confirmPassword}
+                onChange={handleResetChange}
+                placeholder="Repite la nueva contraseña"
+                required
+              />
+            </div>
+
+            <div className="form-actions">
+              <button type="submit" className="btn btn-primary" disabled={resetLoading}>
+                <FaKey /> {resetLoading ? 'Guardando...' : 'Restablecer Contraseña'}
+              </button>
+            </div>
           </form>
         </div>
       </div>

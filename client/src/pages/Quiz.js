@@ -396,7 +396,8 @@ const Quiz = () => {
       try {
         await axios.post('/quiz/complete', {
           quizId: quiz.id,
-          timeTaken: 0 // No importa el tiempo en modo práctica
+          timeTaken: 0, // No importa el tiempo en modo práctica
+          excludeQuestionId: questions[currentIndex]?.id
         });
         navigate(`/results/${quiz.id}`);
       } catch (error) {
