@@ -34,9 +34,46 @@ const QUIZ_STATUS = {
   ABANDONED: 'abandonado'
 };
 
-// Función para seleccionar preguntas proporcionalmente de todas las categorías
-async function selectProportionalQuestions(totalQuestions) {
+// Algoritmo Fisher-Yates para mezcla verdaderamente aleatoria
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+// Obtener IDs de preguntas vistas recientemente por el usuario (últimos N quizzes completados)
+async function getRecentlySeenQuestionIds(userId, lastNQuizzes = 3) {
+  if (!userId) return [];
   try {
+    const recentQuizzes = await dbAll(
+      `SELECT id FROM quizzes
+       WHERE user_id = $1 AND completed = TRUE
+       ORDER BY completed_at DESC
+       LIMIT $2`,
+      [userId, lastNQuizzes]
+    );
+    if (recentQuizzes.length === 0) return [];
+    const quizIds = recentQuizzes.map(q => q.id);
+    const seen = await dbAll(
+      `SELECT DISTINCT question_id FROM user_answers
+       WHERE quiz_id IN (${quizIds.join(',')})`,
+    );
+    return seen.map(r => r.question_id);
+  } catch (error) {
+    console.error('Error al obtener preguntas recientes:', error);
+    return [];
+  }
+}
+
+// Función para seleccionar preguntas proporcionalmente de todas las categorías
+// Prioriza preguntas que el usuario no ha visto recientemente
+async function selectProportionalQuestions(totalQuestions, userId = null) {
+  try {
+    // Obtener IDs de preguntas vistas recientemente para evitar repetirlas
+    const recentlySeenIds = await getRecentlySeenQuestionIds(userId);
+
     // Obtener todas las categorías
     const categories = await dbAll('SELECT id FROM categories');
     
@@ -50,27 +87,56 @@ async function selectProportionalQuestions(totalQuestions) {
 
     let selectedQuestions = [];
 
-    // Obtener preguntas de cada categoría
+    // Obtener preguntas de cada categoría, priorizando las no vistas recientemente
     for (let i = 0; i < categories.length; i++) {
       const categoryId = categories[i].id;
       const questionsToSelect = questionsPerCategory + (i < remainder ? 1 : 0);
 
-      const questions = await dbAll(
-        `SELECT * FROM questions 
-         WHERE category_id = $1 
-         ORDER BY RANDOM() 
-         LIMIT $2`,
-        [categoryId, questionsToSelect]
-      );
+      let questions = [];
+
+      // Primero intentar obtener preguntas NO vistas recientemente
+      if (recentlySeenIds.length > 0) {
+        questions = await dbAll(
+          `SELECT * FROM questions 
+           WHERE category_id = $1 AND id NOT IN (${recentlySeenIds.join(',')})
+           ORDER BY RANDOM() 
+           LIMIT $2`,
+          [categoryId, questionsToSelect]
+        );
+      } else {
+        questions = await dbAll(
+          `SELECT * FROM questions 
+           WHERE category_id = $1
+           ORDER BY RANDOM() 
+           LIMIT $2`,
+          [categoryId, questionsToSelect]
+        );
+      }
+
+      // Si no hay suficientes preguntas nuevas, completar con las ya vistas
+      if (questions.length < questionsToSelect) {
+        const alreadyPickedIds = questions.map(q => q.id);
+        const excludeIds = alreadyPickedIds.length > 0 ? alreadyPickedIds : [0];
+        const needed = questionsToSelect - questions.length;
+        const fallback = await dbAll(
+          `SELECT * FROM questions 
+           WHERE category_id = $1 AND id NOT IN (${excludeIds.join(',')})
+           ORDER BY RANDOM() 
+           LIMIT $2`,
+          [categoryId, needed]
+        );
+        questions = questions.concat(fallback);
+      }
 
       selectedQuestions = selectedQuestions.concat(questions);
     }
 
-    // Si no hay suficientes preguntas, completar con aleatorias
+    // Si aún faltan preguntas, completar con cualquier pregunta no seleccionada
     if (selectedQuestions.length < totalQuestions) {
+      const selectedIds = selectedQuestions.map(q => q.id);
       const additionalQuestions = await dbAll(
         `SELECT * FROM questions 
-         WHERE id NOT IN (${selectedQuestions.map(q => q.id).join(',') || 0})
+         WHERE id NOT IN (${selectedIds.length > 0 ? selectedIds.join(',') : 0})
          ORDER BY RANDOM() 
          LIMIT $1`,
         [totalQuestions - selectedQuestions.length]
@@ -78,8 +144,8 @@ async function selectProportionalQuestions(totalQuestions) {
       selectedQuestions = selectedQuestions.concat(additionalQuestions);
     }
 
-    // Mezclar las preguntas
-    return selectedQuestions.sort(() => Math.random() - 0.5);
+    // Mezclar con Fisher-Yates (verdaderamente aleatorio)
+    return shuffleArray(selectedQuestions);
   } catch (error) {
     console.error('Error al seleccionar preguntas:', error);
     throw error;
@@ -122,15 +188,24 @@ router.post('/start', authMiddleware, async (req, res) => {
       quizConfig = QUIZ_MODES.REAL;
     }
 
-    // Para modo práctica, solo tomar 1 pregunta aleatoria al inicio
+    // Para modo práctica, solo tomar 1 pregunta aleatoria al inicio (evitando las vistas recientemente)
     let questions;
     if (quizConfig.isInfinite) {
-      questions = await dbAll(
-        'SELECT * FROM questions ORDER BY RANDOM() LIMIT 1'
-      );
+      const recentlySeenIds = await getRecentlySeenQuestionIds(userId);
+      if (recentlySeenIds.length > 0) {
+        questions = await dbAll(
+          `SELECT * FROM questions WHERE id NOT IN (${recentlySeenIds.join(',')}) ORDER BY RANDOM() LIMIT 1`
+        );
+      }
+      // Si no hay preguntas no vistas (pool agotado), tomar cualquiera
+      if (!questions || questions.length === 0) {
+        questions = await dbAll(
+          'SELECT * FROM questions ORDER BY RANDOM() LIMIT 1'
+        );
+      }
     } else {
-      // Seleccionar preguntas proporcionalmente para otros modos
-      questions = await selectProportionalQuestions(quizConfig.totalQuestions);
+      // Seleccionar preguntas proporcionalmente para otros modos, evitando repeticiones
+      questions = await selectProportionalQuestions(quizConfig.totalQuestions, userId);
     }
 
     // Validar que haya preguntas disponibles
@@ -321,7 +396,7 @@ router.post('/next-question', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'El cuestionario no está en curso' });
     }
 
-    // Obtener IDs de preguntas ya respondidas
+    // Obtener IDs de preguntas ya respondidas en este quiz
     const answeredQuestions = await dbAll(
       'SELECT question_id FROM user_answers WHERE quiz_id = $1',
       [quizId]
@@ -329,9 +404,23 @@ router.post('/next-question', authMiddleware, async (req, res) => {
 
     const answeredIds = answeredQuestions.map(q => q.question_id);
 
-    // Seleccionar una nueva pregunta al azar (evitando las ya respondidas si es posible)
+    // Combinar con preguntas vistas en sesiones anteriores recientes
+    const recentlySeenIds = await getRecentlySeenQuestionIds(userId, 2);
+    const allExcludedIds = [...new Set([...answeredIds, ...recentlySeenIds])];
+
+    // Seleccionar una nueva pregunta al azar (priorizando las no vistas recientemente)
     let newQuestion;
-    if (answeredIds.length > 0) {
+    if (allExcludedIds.length > 0) {
+      newQuestion = await dbGet(
+        `SELECT * FROM questions 
+         WHERE id NOT IN (${allExcludedIds.join(',')})
+         ORDER BY RANDOM() 
+         LIMIT 1`
+      );
+    }
+
+    // Si no hay preguntas totalmente nuevas, evitar al menos las del quiz actual
+    if (!newQuestion && answeredIds.length > 0) {
       newQuestion = await dbGet(
         `SELECT * FROM questions 
          WHERE id NOT IN (${answeredIds.join(',')})
